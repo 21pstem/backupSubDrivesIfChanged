@@ -103,8 +103,6 @@ function backupTeamDrive() {
   subBackupFolder = backupFolder.createFolder("Outreach");
   // Copy all sub folders (recursively)
   copyFolder(subBackupFolder, teamFolder);
-
-  // delete old deleted files from backupFolder
 }
 
 
