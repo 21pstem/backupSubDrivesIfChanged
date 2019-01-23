@@ -16,7 +16,7 @@ function backupTeamDrives() {
     var timeZone = Session.getScriptTimeZone();
     var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
     Logger.log("*** getGoogleTeamDrives formattedDate: "+formattedDate);
-    
+
     var teamDrives = {},
       baseUrl = "https://www.googleapis.com/drive/v3/teamdrives",
       token = ScriptApp.getOAuthToken(),
@@ -59,10 +59,10 @@ function backupTeamDrives() {
               muteHttpExceptions: false
             });
             Logger.log("RESP: "+resp);
-          }       
+          }
           // Logger.log("*** Create Team Drive folder");
           var tDrive = DriveApp.getFolderById(teamDrive.id);
-          subBackupFolder = backupFolder.createFolder(teamDrive.name);   
+          subBackupFolder = backupFolder.createFolder(teamDrive.name);
           // Copy all sub folders (recursively)
           copyFolder(subBackupFolder, tDrive);
         }
@@ -79,10 +79,12 @@ function backupTeamDrive() {
   var timeZone = Session.getScriptTimeZone();
   var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
   Logger.log("*** backupTeamDrives formattedDate: "+formattedDate);
-  var backupFolder = DriveApp.getFolderById('0ABF2MikZKXHsUk9PVA'); // backup folder 
-  // teamDrive: Technology Curriculum id: 0ALhe_n9Z7FZpUk9PVA
-  var teamFolder = DriveApp.getFolderById('0ALhe_n9Z7FZpUk9PVA'); // Team folder to backup
-  var subBackupFolderMatches = backupFolder.getFoldersByName("Technology Curriculum");
+  var backupFolder = DriveApp.getFolderById('0ABF2MikZKXHsUk9PVA'); // backup folder
+  // teamDrive:
+  // Technology Curriculum id: 0ALhe_n9Z7FZpUk9PVA
+  // Outreach id: 0AEZsV-cyKZTcUk9PVA
+  var teamFolder = DriveApp.getFolderById('0AEZsV-cyKZTcUk9PVA'); // Team folder to backup
+  var subBackupFolderMatches = backupFolder.getFoldersByName("Outreach");
   var subBackupFolder;
   Logger.log("*** subBackupFolderMatches.hasNext(): "+subBackupFolderMatches.hasNext());
   while (subBackupFolderMatches.hasNext()) {
@@ -97,11 +99,11 @@ function backupTeamDrive() {
     });
     Logger.log("RESP: "+resp);
   }
-  Logger.log("*** Create Technology Curriculum folder");
-  subBackupFolder = backupFolder.createFolder("Technology Curriculum");   
+  Logger.log("*** Create Outreach folder");
+  subBackupFolder = backupFolder.createFolder("Outreach");
   // Copy all sub folders (recursively)
   copyFolder(subBackupFolder, teamFolder);
-  
+
   // delete old deleted files from backupFolder
 }
 
@@ -109,7 +111,7 @@ function backupTeamDrive() {
 function copyFolder(backupFolder, teamFolder) {
   Logger.log("*** backup to folder: "+backupFolder.getName());
   var teamFiles = teamFolder.getFiles();
-    
+
   // update or create new each file in the team drive folder
   while (teamFiles.hasNext()) {
     var tf = teamFiles.next();
@@ -118,7 +120,7 @@ function copyFolder(backupFolder, teamFolder) {
     Logger.log("got file blob, now create file");
     backupFolder.createFile(blob);
   }
-  
+
   // copy all sub folders in the team drive folder
   var folders = teamFolder.getFolders();
   while (folders.hasNext()) {
@@ -131,7 +133,7 @@ function copyFolder(backupFolder, teamFolder) {
   }
 
   return;
-} 
+}
 
 
 function getFileBlob(file) {
@@ -181,7 +183,7 @@ function getFileBlob(file) {
 
 function listFilesInTeamDrive() {
   try {
-    var folder = DriveApp.getFolderById('0ADEphxv4_hwkUk9PVA'); // Applications folder 
+    var folder = DriveApp.getFolderById('0ADEphxv4_hwkUk9PVA'); // Applications folder
     var files = folder.getFiles();
     while (files.hasNext()){
       file = files.next();
@@ -239,7 +241,7 @@ function getFolderBlobs(parentFolder, parents) {
     blobs = blobs.concat(getFolderBlobs(folder, fPath));
   }
   return blobs;
-} 
+}
 
 
 
