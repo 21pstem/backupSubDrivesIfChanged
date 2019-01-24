@@ -8,6 +8,8 @@ function backupTeamDrives() {
 // TeamFoldersBackups .id: 0ABF2MikZKXHsUk9PVA
 // Technology Curriculum .id: 0ALhe_n9Z7FZpUk9PVA
 // Travel Working .id: 0AN0WJCM9RIS4Uk9PVA
+  
+  var errors = [];
 
   try {
     var backupFolderId = '0ABF2MikZKXHsUk9PVA';
@@ -56,29 +58,50 @@ function backupTeamDrives() {
             resp = UrlFetchApp.fetch(delUrl, {
               method: "DELETE",
               headers: {"Authorization": "Bearer " + accesstoken},
-              muteHttpExceptions: false
+              muteHttpExceptions: true
             });
-            Logger.log("RESP: "+resp);
+            errors = errors.concat(getErrors('Delete backup folder ('+subBackupFolder+') Error: ',resp));
           }
           // Logger.log("*** Create Team Drive folder");
           var tDrive = DriveApp.getFolderById(teamDrive.id);
           subBackupFolder = backupFolder.createFolder(teamDrive.name);
           // Copy all sub folders (recursively)
-          copyFolder(subBackupFolder, tDrive);
+          errors = errors.concat(copyFolder(subBackupFolder, tDrive));
         }
       })
       params.pageToken = response.nextPageToken;
     } while (params.pageToken);
   } catch (f) {
-    Logger.log("error: " + f.toString());
+    errors.push(f.toString());
   }
-  // return false;
+  if (errors.length > 0) {
+    Logger.log("ERRORS: "+JSON.stringify(errors));
+  }
+}
+
+function getErrors(context,response) {
+  errors = [];
+  try {
+    if (resp.length > 0) {
+      resp = JSON.parse(response);
+      Logger.log("+++ resp.error.errors.length: "+resp.error.errors.length);
+      for (var i in resp.error.errors) {
+        Logger.log("+++ error: "+resp.error.errors[i].message);
+        errors.push(context+resp.error.errors[i].message);
+      }
+    }
+  } catch (err) {
+    Logger.log("+++ catch err: "+err);
+    errors.push("response parse error: "+err);
+  }
+  return errors;
 }
 
 function backupTeamDrive() {
-  var timeZone = Session.getScriptTimeZone();
-  var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
-  Logger.log("*** backupTeamDrives formattedDate: "+formattedDate);
+  //var timeZone = Session.getScriptTimeZone();
+  ///var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
+  //Logger.log("*** backupTeamDrives formattedDate: "+formattedDate);
+  var errors = [];
   var backupFolder = DriveApp.getFolderById('0ABF2MikZKXHsUk9PVA'); // backup folder
   // teamDrive:
   // Technology Curriculum id: 0ALhe_n9Z7FZpUk9PVA
@@ -95,19 +118,23 @@ function backupTeamDrive() {
     resp = UrlFetchApp.fetch(delUrl, {
       method: "DELETE",
       headers: {"Authorization": "Bearer " + accesstoken},
-      muteHttpExceptions: false
+      muteHttpExceptions: true
     });
-    Logger.log("RESP: "+resp);
+    errors = errors.concat(getErrors('Delete backup folder ('+subBackupFolder+') Error: ',resp));
   }
   Logger.log("*** Create Outreach folder");
   subBackupFolder = backupFolder.createFolder("Outreach");
   // Copy all sub folders (recursively)
-  copyFolder(subBackupFolder, teamFolder);
+  errors = errors.concat(copyFolder(subBackupFolder, teamFolder));
+  if (errors.length > 0) {
+    Logger.log("ERRORS: "+JSON.stringify(errors));
+  }
 }
 
 
 function copyFolder(backupFolder, teamFolder) {
   Logger.log("*** backup to folder: "+backupFolder.getName());
+  var errors = [];
   var teamFiles = teamFolder.getFiles();
 
   // update or create new each file in the team drive folder
@@ -130,22 +157,24 @@ function copyFolder(backupFolder, teamFolder) {
     copyFolder(subBackupFolder, tfolder);
   }
 
-  return;
+  return errors;
 }
 
 
 function getFileBlob(file) {
+  var errors = [];
   var accesstoken = ScriptApp.getOAuthToken();
   var mime = file.getMimeType();
   var name = file.getName();
   Logger.log("***  getFileBlob name: " + name + ", mime: " + mime);
   if (mime == "application/vnd.google-apps.script") {
-    blob = UrlFetchApp.fetch("https://script.google.com/feeds/download/export?id=" + e + "&format=json", {
+    resp = UrlFetchApp.fetch("https://script.google.com/feeds/download/export?id=" + e + "&format=json", {
       method: "GET",
       headers: {"Authorization": "Bearer " + accesstoken},
-      muteHttpExceptions: false
-    }).getBlob().setName(name);
-    Logger.log ("***   getFileBlob   google apps script");
+      muteHttpExceptions: true
+    });
+    errors = errors.concat(getErrors('getFileBlob gs ('+name+') Error: ',resp));
+    blob = resp.getBlob().setName(name);
   } else if (~mime.indexOf('google-apps')) {
     var mimeCode;
     switch (mime) {
@@ -161,17 +190,21 @@ function getFileBlob(file) {
       default: ["application/pdf", name + ".pdf"];
     }
     Logger.log ("***   getFileBlobs   google apps mime: " + mimeCode);
-    blob = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "/export?mimeType=" + mimeCode[0], {
+    resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "/export?mimeType=" + mimeCode[0], {
       method: "GET",
       headers: {"Authorization": "Bearer " + accesstoken},
       muteHttpExceptions: true
-    }).getBlob().setName(mimeCode[1]);
+    });
+    errors = errors.concat(getErrors('getFileBlob ga ('+name+') Error: ',resp));
+    blob = resp.getBlob().setName(mimeCode[1]);
   } else {
-    blob = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "?alt=media", {
+    resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "?alt=media", {
       method: "GET",
       headers: {"Authorization": "Bearer " + accesstoken},
       muteHttpExceptions: true
-    }).getBlob().setName(name);
+    });
+    errors = errors.concat(getErrors('getFileBlob other ('+name+') Error: ',resp));
+    blob = resp.getBlob().setName(name);
     Logger.log ("***   getFileBlobs   google apps media?");
   }
   return blob;
@@ -264,11 +297,13 @@ function getFileBlobs(fileIds, parents) {
     Logger.log("***   getFileBlobs get file: " + name);
     var blob;
     if (mime == "application/vnd.google-apps.script") {
-      blob = UrlFetchApp.fetch("https://script.google.com/feeds/download/export?id=" + e + "&format=json", {
+      resp = UrlFetchApp.fetch("https://script.google.com/feeds/download/export?id=" + e + "&format=json", {
         method: "GET",
         headers: {"Authorization": "Bearer " + accesstoken},
-        muteHttpExceptions: false
-      }).getBlob().setName(name);
+        muteHttpExceptions: true
+      });
+      errs = getErrors(resp);
+      blob = resp.getBlob().setName(name);
       Logger.log ("***   getFileBlobs   google apps script");
     } else if (~mime.indexOf('google-apps')) {
       var mimeCode;
@@ -285,17 +320,21 @@ function getFileBlobs(fileIds, parents) {
         default: ["application/pdf", name + ".pdf"];
       }
       Logger.log ("***   getFileBlobs   google apps mime: " + mimeCode);
-      blob = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + e + "/export?mimeType=" + mimeCode[0], {
+      resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + e + "/export?mimeType=" + mimeCode[0], {
         method: "GET",
         headers: {"Authorization": "Bearer " + accesstoken},
         muteHttpExceptions: true
-      }).getBlob().setName(mimeCode[1]);
+      });
+      errs = getErrors(resp);
+      blob = resp.getBlob().setName(mimeCode[1]);
     } else {
-      blob = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + e + "?alt=media", {
+      resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + e + "?alt=media", {
         method: "GET",
         headers: {"Authorization": "Bearer " + accesstoken},
         muteHttpExceptions: true
-      }).getBlob().setName(name);
+      });
+      errs = getErrors(resp);
+      blob = resp.getBlob().setName(name);
       Logger.log ("***   getFileBlobs   google apps media?");
     }
     // blobs.push(blob);
