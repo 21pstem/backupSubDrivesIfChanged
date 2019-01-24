@@ -8,7 +8,7 @@ function backupTeamDrives() {
 // TeamFoldersBackups .id: 0ABF2MikZKXHsUk9PVA
 // Technology Curriculum .id: 0ALhe_n9Z7FZpUk9PVA
 // Travel Working .id: 0AN0WJCM9RIS4Uk9PVA
-  
+
   var errors = [];
 
   try {
@@ -60,9 +60,8 @@ function backupTeamDrives() {
               headers: {"Authorization": "Bearer " + accesstoken},
               muteHttpExceptions: true
             });
-            errors = errors.concat(getErrors('Delete backup folder ('+subBackupFolder+') Error: ',resp));
+            errors = errors.concat(getErrors(subBackupFolder, 'Delete backup folder ('+subBackupFolder+")", resp));
           }
-          // Logger.log("*** Create Team Drive folder");
           var tDrive = DriveApp.getFolderById(teamDrive.id);
           subBackupFolder = backupFolder.createFolder(teamDrive.name);
           // Copy all sub folders (recursively)
@@ -74,20 +73,26 @@ function backupTeamDrives() {
   } catch (f) {
     errors.push(f.toString());
   }
-  if (errors.length > 0) {
-    Logger.log("ERRORS: "+JSON.stringify(errors));
+  for (err in errors) {
+    var e = errors[err];
+    // Logger.log("ERROR: '"+e.error+"' on file: "+e.filename)+" ("+e.fileId+") "+"owned by: "+e.ownerName);
+    Logger.log("ERROR: '"+e);
   }
 }
 
-function getErrors(context,response) {
-  errors = [];
+function getErrors(file, note, response) {
+  var errors = [];
   try {
-    if (resp.length > 0) {
-      resp = JSON.parse(response);
-      Logger.log("+++ resp.error.errors.length: "+resp.error.errors.length);
+    if (response.length > 0) {
+      var resp = JSON.parse(response);
       for (var i in resp.error.errors) {
-        Logger.log("+++ error: "+resp.error.errors[i].message);
-        errors.push(context+resp.error.errors[i].message);
+        errors.push( {
+          filename: '', // file.getName(),
+          fileId: '', //file.getId(),
+          ownerName: '', //file.getOwner().getName(),
+          note: note,
+          errMsg: resp.error.errors[i].message
+        } );
       }
     }
   } catch (err) {
@@ -120,14 +125,20 @@ function backupTeamDrive() {
       headers: {"Authorization": "Bearer " + accesstoken},
       muteHttpExceptions: true
     });
-    errors = errors.concat(getErrors('Delete backup folder ('+subBackupFolder+') Error: ',resp));
+    errors = errors.concat(getErrors(subBackupFolder, 'Delete backup folder ('+subBackupFolder+")", resp));
   }
   Logger.log("*** Create Outreach folder");
   subBackupFolder = backupFolder.createFolder("Outreach");
   // Copy all sub folders (recursively)
   errors = errors.concat(copyFolder(subBackupFolder, teamFolder));
-  if (errors.length > 0) {
-    Logger.log("ERRORS: "+JSON.stringify(errors));
+  for (err in errors) {
+    var e = errors[err];
+    for (var prop in e) {
+      if (e.hasOwnProperty(prop)) {
+        Logger.log("prop: '"+prop+" = "+e[prop]);
+      }
+    }
+    Logger.log("ERROR: '"+e['errMsg']+"' on file: "+e['filename']+" ("+e['fileId']+") "+"owned by: "+e['ownerName']);
   }
 }
 
@@ -141,9 +152,45 @@ function copyFolder(backupFolder, teamFolder) {
   while (teamFiles.hasNext()) {
     var tf = teamFiles.next();
     Logger.log("*** copy team file: " + tf.getName() + " id: " + tf.getId());
-    var blob = getFileBlob(tf);
-    Logger.log("got file blob, now create file");
-    backupFolder.createFile(blob);
+    var retBlob = getFileBlob(tf);
+    var blob = retBlob[0];
+    errors = errors.concat(retBlob[1]);
+    Logger.log("got file blob, now create file!");
+    try {
+
+      // attempt to use rest interface to create file
+      // delete folder rest api docs: https://developers.google.com/drive/api/v3/reference/files/create
+      // need to find how to set content to blob using this api
+      //var createFileUrl = "https://www.googleapis.com/drive/v3/file";
+      //Logger.log("*** createFileUrl: "+createFileUrl);
+      //var accesstoken = ScriptApp.getOAuthToken();
+      //resp = UrlFetchApp.fetch(createFileUrl, {
+      //  method: "POST",
+      //  headers: {"Authorization": "Bearer " + accesstoken},
+      //  muteHttpExceptions: true
+      //});
+      
+      // if blob is error JSON, then pass up the error
+      if (blob.getDataAsString().length < 1000) {
+        errs = getErrors(tf, 'get file blob ('+backupFolder+'/'+tf.getName()+')',blob.getDataAsString());
+
+        if (errs.length > 0) {
+          errors = errors.concat(errs);
+        }
+      }
+      // create the file from the blob regardless of error
+      newFile = backupFolder.createFile(blob);
+    } catch (err) {
+      Logger.log("create file "+tf.getName()+" ERROR: "+err);
+      errors.push( {
+        context: "Exception caught",
+        filename: tf.getName(),
+        fileId: tf.getId(),
+        owner: "",
+        note: "",
+        error: err
+      } );
+    }
   }
 
   // copy all sub folders in the team drive folder
@@ -154,7 +201,7 @@ function copyFolder(backupFolder, teamFolder) {
     // create new folder
     Logger.log("*** Create "+tfolder.getName()+" folder");
     subBackupFolder = backupFolder.createFolder(tfolder.getName());
-    copyFolder(subBackupFolder, tfolder);
+    errors = errors.concat(copyFolder(subBackupFolder, tfolder));
   }
 
   return errors;
@@ -166,6 +213,7 @@ function getFileBlob(file) {
   var accesstoken = ScriptApp.getOAuthToken();
   var mime = file.getMimeType();
   var name = file.getName();
+  var blob;
   Logger.log("***  getFileBlob name: " + name + ", mime: " + mime);
   if (mime == "application/vnd.google-apps.script") {
     resp = UrlFetchApp.fetch("https://script.google.com/feeds/download/export?id=" + e + "&format=json", {
@@ -173,7 +221,7 @@ function getFileBlob(file) {
       headers: {"Authorization": "Bearer " + accesstoken},
       muteHttpExceptions: true
     });
-    errors = errors.concat(getErrors('getFileBlob gs ('+name+') Error: ',resp));
+    errors = errors.concat(getErrors(file, "getFileBlob gs ('+name+')", resp));
     blob = resp.getBlob().setName(name);
   } else if (~mime.indexOf('google-apps')) {
     var mimeCode;
@@ -195,7 +243,7 @@ function getFileBlob(file) {
       headers: {"Authorization": "Bearer " + accesstoken},
       muteHttpExceptions: true
     });
-    errors = errors.concat(getErrors('getFileBlob ga ('+name+') Error: ',resp));
+    errors = errors.concat(getErrors(file, "getFileBlob ga ('+name+')", resp));
     blob = resp.getBlob().setName(mimeCode[1]);
   } else {
     resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "?alt=media", {
@@ -203,11 +251,11 @@ function getFileBlob(file) {
       headers: {"Authorization": "Bearer " + accesstoken},
       muteHttpExceptions: true
     });
-    errors = errors.concat(getErrors('getFileBlob other ('+name+') Error: ',resp));
+    errors = errors.concat(getErrors(file, "getFileBlob other ('+name+')", resp));
     blob = resp.getBlob().setName(name);
     Logger.log ("***   getFileBlobs   google apps media?");
   }
-  return blob;
+  return [blob, errors];
 }
 
 
@@ -302,7 +350,6 @@ function getFileBlobs(fileIds, parents) {
         headers: {"Authorization": "Bearer " + accesstoken},
         muteHttpExceptions: true
       });
-      errs = getErrors(resp);
       blob = resp.getBlob().setName(name);
       Logger.log ("***   getFileBlobs   google apps script");
     } else if (~mime.indexOf('google-apps')) {
@@ -325,7 +372,6 @@ function getFileBlobs(fileIds, parents) {
         headers: {"Authorization": "Bearer " + accesstoken},
         muteHttpExceptions: true
       });
-      errs = getErrors(resp);
       blob = resp.getBlob().setName(mimeCode[1]);
     } else {
       resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + e + "?alt=media", {
@@ -333,7 +379,6 @@ function getFileBlobs(fileIds, parents) {
         headers: {"Authorization": "Bearer " + accesstoken},
         muteHttpExceptions: true
       });
-      errs = getErrors(resp);
       blob = resp.getBlob().setName(name);
       Logger.log ("***   getFileBlobs   google apps media?");
     }
