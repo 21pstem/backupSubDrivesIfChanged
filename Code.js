@@ -1,21 +1,25 @@
-
+// BackupDrives
+// Google App Script that backs up all Team Drives into a backup folder.
+// Note: All backup files are office versions (ie google format files are converted to .xlsx, .docx, and pptx formats)
+// Note: To identify converted files, they have extensions of either: .gs.xlsx, .gs.docx, or .gs.pptx
+// Note: New applications must call setProps() of setProperties.gs
+// Note: When creating a new application from the git repo, copy and edit the setProperties.example.gs
+// Note: does not backup the backup folder plua an additional folder specified by the skipDriveId property
+// Note: using clasp for git syncing with this project - https://github.com/google/clasp
+// Note: to set up clasp, see: https://developers.google.com/apps-script/guides/clasp
+ 
+// ToDo: make skipDriveId property a JSON array to allow skipping multiple drives
+// ToDo: Automatically skip deleting and rebuilding drives if nothing has changed (check dates in all sub-folders and files)
 
 function backupTeamDrives() {
-// Applications .id: 0ADEphxv4_hwkUk9PVA
-// Crazy AWP stuff.id: 0ANC9rcmM4HWWUk9PVA
-// IT .id: 0AFTpghoBflPwUk9PVA
-// Quarterly Report Team .id: 0AGUUxRwGZ9q0Uk9PVA
-// Shared Docs .id: 0AFgMNN2I0tOsUk9PVA
-// STESSA .id: 0ACAv80hPxcTrUk9PVA
-// TeamFoldersBackups .id: 0ABF2MikZKXHsUk9PVA
-// Technology Curriculum .id: 0ALhe_n9Z7FZpUk9PVA
-// Travel Working .id: 0AN0WJCM9RIS4Uk9PVA
+  var userProperties = PropertiesService.getUserProperties();
 
-  var errors = [];
-
+  var errors = [];  // array of errors for emailed error report (sent to email address in reportingEmail property);
   try {
-    var backupFolderId = '0ABF2MikZKXHsUk9PVA';
-    var ecaseFolderId = '0AKb4pDaSqn80Uk9PVA';
+    var backupFolderId = userProperties.getProperty('backupDriveId');
+    var skipDriveId = userProperties.getProperty('skipDriveId');
+    
+    Logger.log("backupFolderId: "+backupFolderId);
     var backupFolder = DriveApp.getFolderById(backupFolderId);
     Logger.log("Back up to: " + backupFolder.getName());
     //var timeZone = Session.getScriptTimeZone();
@@ -44,7 +48,7 @@ function backupTeamDrives() {
         Logger.log('Team Drive .name: ' + teamDrive.name+' .id: ' + teamDrive.id);
         if (teamDrive.id === backupFolderId) {
           Logger.log ("SKIP BACKUP FOLDER");
-        } else if (teamDrive.id === ecaseFolderId) {
+        } else if (teamDrive.id === skipDriveId) {
           Logger.log ("SKIP ECASE FOLDER");
         } else {
           Logger.log ("PROCESS "+ teamDrive.name +" FOLDER");
@@ -75,7 +79,7 @@ function backupTeamDrives() {
       params.pageToken = response.nextPageToken;
     } while (params.pageToken && countDrives < 3);
   } catch (f) {
-    errors.push(f.toString());
+    errors.push("Main Loop error: "+f);
   }
   var messages = ["<table><tr><th>Team Drive</th><th>Folders</th><th>File</th><th>Error</th></tr>"];
   for (err in errors) {
@@ -96,8 +100,6 @@ function backupTeamDrives() {
 
 function getErrors(teamDriveName, folders, file, note, response) {
   var errors = [];
-  //Logger.log("*** file.getName(): "+file.getName());
-  //Logger.log("*** file.getId(): "+file.getId());
   try {
     if (response.length > 0) {
       var resp = JSON.parse(response);
@@ -119,18 +121,14 @@ function getErrors(teamDriveName, folders, file, note, response) {
   return errors;
 }
 
+// backup a single team drive for either onetime backups of skipped files or for testing
 function backupTeamDrive() {
   //var timeZone = Session.getScriptTimeZone();
   ///var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
   //Logger.log("*** backupTeamDrives formattedDate: "+formattedDate);
   var errors = [];
-  var backupFolder = DriveApp.getFolderById('0ABF2MikZKXHsUk9PVA'); // backup folder
-  // teamDrive:
-  // Technology Curriculum id: 0ALhe_n9Z7FZpUk9PVA
-  // Outreach id: 0AEZsV-cyKZTcUk9PVA
-  // ECASE id: 0AKb4pDaSqn80Uk9PVA
-  // IT id : 0AFTpghoBflPwUk9PVA
-  var teamFolder = DriveApp.getFolderById('0AKb4pDaSqn80Uk9PVA'); // Team folder to backup
+  var backupFolder = DriveApp.getFolderById(userProperties.getProperty('backupDriveId')); // backup folder
+  var teamFolder = DriveApp.getFolderById(userProperties.getProperty('skipDriveId')); // Team folder to backup
   var teamFolderName = "ECASE";
   var subBackupFolderMatches = backupFolder.getFoldersByName(teamFolderName);
   var subBackupFolder;
@@ -183,24 +181,10 @@ function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
     var blob = retBlob[0];
     errors = errors.concat(retBlob[1]);
     //Logger.log("got file blob, now create file!");
-    try {
-
-      // attempt to use rest interface to create file
-      // delete folder rest api docs: https://developers.google.com/drive/api/v3/reference/files/create
-      // need to find how to set content to blob using this api
-      //var createFileUrl = "https://www.googleapis.com/drive/v3/file";
-      //Logger.log("*** createFileUrl: "+createFileUrl);
-      //var accesstoken = ScriptApp.getOAuthToken();
-      //resp = UrlFetchApp.fetch(createFileUrl, {
-      //  method: "POST",
-      //  headers: {"Authorization": "Bearer " + accesstoken},
-      //  muteHttpExceptions: true
-      //});
-      
+    try {    
       // if blob is error JSON, then pass up the error
       if (blob.getDataAsString().length < 1000) {
         errs = getErrors(teamDriveName, parentDirs, tf, 'get file blob ('+backupFolder+'/'+tf.getName()+')',blob.getDataAsString());
-
         if (errs.length > 0) {
           errors = errors.concat(errs);
         }
@@ -288,38 +272,12 @@ function getFileBlob(teamDriveName, parentDirs, file) {
 
 
 function setProps() {
-  var userProperties = PropertiesService.getUserProperties();
-  userProperties.setProperty('reportingEmail', 'info@21pstem.org'); // email account to send outputs from this script to
-  //var reportingEmail = userProperties.getProperty('reportingEmail');
-  //reportingEmail = 'info@21pstem.org'; // email account to send outputs from this script to
-  //userProperties.setProperty('reportingEmail', reportingEmail);
+  // this is the example for setting properties
+  // note actual code is in setProperties.gs (which is not in github repo) or setProperties.example.gs
+ var userProperties = PropertiesService.getUserProperties();
+  userProperties.setProperty('reportingEmail', 'xxx@yyy.org'); // email account to send outputs from this script to
+  userProperties.setProperty('backupDriveId', 'xxxSomeIdHerexxx'); // Team Drive used to backup the other team drives
+  userProperties.setProperty('skipDriveId', 'xxxSomeIdHerexxx'); // Team Drive to skip (along with backup team drive)
 }
 
-function testEmail() {
-  var userProperties = PropertiesService.getUserProperties();
-  MailApp.sendEmail({
-    to: userProperties.getProperty('reportingEmail'),
-    subject: 'Testing scripted HTML emails',
-    htmlBody: '<body><h1>HTML Header</h1><b>Title</b>This is a test'
-  });
-}
-
-//function listUsers() {
-//  var optionalArgs = {
-//    customer: 'my_customer',
-//    maxResults: 10,
-//    orderBy: 'email'
-//  };
-//  var response = AdminDirectory.Users.list(optionalArgs);
-//  var users = response.users;
-//  if (users && users.length > 0) {
-//    Logger.log('Users:');
-//    for (i = 0; i < users.length; i++) {
-//      var user = users[i];
-//      Logger.log('%s (%s)', user.primaryEmail, user.name.fullName);
-//    }
-//  } else {
-//    Logger.log('No users found.');
-//  }
-//}
 
