@@ -48,10 +48,13 @@ function backupTeamDrives() {
         Logger.log('Team Drive .name: ' + teamDrive.name+' .id: ' + teamDrive.id);
         if (teamDrive.id === backupFolderId) {
           Logger.log ("SKIP BACKUP FOLDER");
+          console.info("Skip Backup Folder");
         } else if (teamDrive.id === skipDriveId) {
-          Logger.log ("SKIP ECASE FOLDER");
+          Logger.log ("SKIP ECASE Team Drive");
+          console.info("Skip ECASE Team Drive");
         } else {
-          Logger.log ("PROCESS "+ teamDrive.name +" FOLDER");
+          Logger.log ("PROCESS "+ teamDrive.name +" Team Drive");
+          console.info("Process %s Team Drive", teamDrive.name);
           var subBackupFolderMatches = backupFolder.getFoldersByName(teamDrive.name);
           var subBackupFolder;
           //Logger.log("*** subBackupFolderMatches.hasNext(): "+subBackupFolderMatches.hasNext());
@@ -132,6 +135,7 @@ function backupTeamDrive() {
   var teamFolderName = "ECASE";
   var subBackupFolderMatches = backupFolder.getFoldersByName(teamFolderName);
   var subBackupFolder;
+  console.info("Process %s Team Drive", teamFolderName);
   //Logger.log("*** subBackupFolderMatches.hasNext(): "+subBackupFolderMatches.hasNext());
   while (subBackupFolderMatches.hasNext()) {
     subBackupFolder = subBackupFolderMatches.next();
@@ -170,6 +174,8 @@ function backupTeamDrive() {
 function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
   Logger.log("*** backup to folder: "+backupFolder.getName());
   Logger.log("*** teamDriveName: "+teamDriveName);
+  console.info("  %s Folder", backupFolder);
+  
   var errors = [];
   var teamFiles = teamFolder.getFiles();
 
