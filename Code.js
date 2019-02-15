@@ -62,7 +62,6 @@ function backupTeamDrives() {
           //Logger.log("*** subBackupFolderMatches.hasNext(): "+subBackupFolderMatches.hasNext());
           while (subBackupFolderMatches.hasNext()) {
             subBackupFolder = subBackupFolderMatches.next();
-            //Logger.log("*** subBackupFolder.getId(): "+subBackupFolder.getId());
             var delUrl = "https://www.googleapis.com/drive/v3/files/"+subBackupFolder.getId()+"?supportsTeamDrives=true";
             //Logger.log("*** delUrl: "+delUrl);
             var accesstoken = ScriptApp.getOAuthToken();
@@ -77,8 +76,11 @@ function backupTeamDrives() {
           }
           var tDrive = DriveApp.getFolderById(teamDrive.id);
           subBackupFolder = backupFolder.createFolder(teamDrive.name);
+          
           // Copy all sub folders (recursively)
+          Logger.log("***** start Team Drive copy : " + teamDrive.name);
           errors = errors.concat(copyFolder(subBackupFolder, tDrive, teamDrive.name, ""));
+          Logger.log("***** finish Team Drive copy : " + teamDrive.name);
         }
       })
       params.pageToken = response.nextPageToken;
@@ -101,6 +103,36 @@ function backupTeamDrives() {
     subject: 'Team Drives Backed up Error Report',
     htmlBody: "<h1>Team Drives Backed up Error Report</h1><br>"+messages.join('<br>')+"<br>Done"
   });
+}
+
+function listTeamDrives() {
+  try {
+    var baseUrl = "https://www.googleapis.com/drive/v3/teamdrives";
+    var token = ScriptApp.getOAuthToken();
+    var params = {
+        pageSize: 99,
+        fields: "nextPageToken,teamDrives(id,name)"
+      };
+    do {
+      var queryString = Object.keys(params).map(function(p) {
+        return [encodeURIComponent(p), encodeURIComponent(params[p])].join("=");
+      }).join("&amp;");
+      var apiUrl = baseUrl + "?" + queryString;
+      var response = JSON.parse(
+        UrlFetchApp.fetch( apiUrl, {
+          method: "GET",
+          headers: {"Authorization": "Bearer " + token}
+        }).getContentText());
+      Logger.log("get " + apiUrl + " error: " + response.error);
+      response.teamDrives.forEach(function(teamDrive) {
+        Logger.log('Team Drive .name: ' + teamDrive.name+' .id: ' + teamDrive.id);
+      })
+      Logger.log('Team Drive Page is done');
+      params.pageToken = response.nextPageToken;
+    } while (params.pageToken);
+  } catch (f) {
+    errors.push("Main Loop error: "+f);
+  }
 }
 
 function getErrors(teamDriveName, folders, file, note, response) {
@@ -190,7 +222,7 @@ function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
   // update or create new each file in the team drive folder
   while (teamFiles.hasNext()) {
     var tf = teamFiles.next();
-    Logger.log("*** copy team file: " + tf.getName() + " id: " + tf.getId());
+    Logger.log("--- start : " + teamDriveName + " - " + parentDirs + " - " + tf.getName());
     var retBlob = getFileBlob(teamDriveName, parentDirs, tf);
     var blob = retBlob[0];
     errors = errors.concat(retBlob[1]);
@@ -216,7 +248,7 @@ function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
         errMsg: err
       } );
     }
-    Logger.log("--- finished team file: " + tf.getName() + " id: " + tf.getId());
+    Logger.log("--- finished : " + teamDriveName + " - " + parentDirs + " - " + tf.getName());
   }
 
 
@@ -229,6 +261,7 @@ function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
     Logger.log("*** Create "+tfolder.getName()+" folder");
     var subBackupFolder = backupFolder.createFolder(tfolder.getName());
     errors = errors.concat(copyFolder(subBackupFolder, tfolder, teamDriveName, parentDirs+tfolder.getName()));
+    Logger.log("*** finished sub folder: " + tfolder.getName() + " id: " + tfolder.getId());
   }
 
   return errors;
