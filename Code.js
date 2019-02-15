@@ -13,6 +13,8 @@
 
 function backupTeamDrives() {
   var userProperties = PropertiesService.getUserProperties();
+  
+  getProps();  // log the current script properties for the app
 
   var errors = [];  // array of errors for emailed error report (sent to email address in reportingEmail property);
   try {
@@ -118,7 +120,7 @@ function getErrors(teamDriveName, folders, file, note, response) {
       }
     }
   } catch (err) {
-    Logger.log("+++ catch err: "+err);
+    Logger.log("+++ catch err: "+err+" on response: "+response);
     errors.push("response parse error: "+err);
   }
   return errors;
@@ -126,13 +128,19 @@ function getErrors(teamDriveName, folders, file, note, response) {
 
 // backup a single team drive for either onetime backups of skipped files or for testing
 function backupTeamDrive() {
+  var userProperties = PropertiesService.getUserProperties();
   //var timeZone = Session.getScriptTimeZone();
   ///var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
   //Logger.log("*** backupTeamDrives formattedDate: "+formattedDate);
   var errors = [];
   var backupFolder = DriveApp.getFolderById(userProperties.getProperty('backupDriveId')); // backup folder
-  var teamFolder = DriveApp.getFolderById(userProperties.getProperty('skipDriveId')); // Team folder to backup
-  var teamFolderName = "ECASE";
+  
+  // single drive to back up
+  //var teamFolder = DriveApp.getFolderById(userProperties.getProperty('skipDriveId')); // Team folder to backup
+  //var teamFolderName = "ECASE";
+  var teamFolder = DriveApp.getFolderById("0AN0WJCM9RIS4Uk9PVA");
+  var teamFolderName = "Travel Working";
+  
   var subBackupFolderMatches = backupFolder.getFoldersByName(teamFolderName);
   var subBackupFolder;
   console.info("Process %s Team Drive", teamFolderName);
@@ -174,7 +182,7 @@ function backupTeamDrive() {
 function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
   Logger.log("*** backup to folder: "+backupFolder.getName());
   Logger.log("*** teamDriveName: "+teamDriveName);
-  console.info("  %s Folder", backupFolder);
+  console.info("Folder: '%s' - '%s' started", teamDriveName, backupFolder);
   
   var errors = [];
   var teamFiles = teamFolder.getFiles();
@@ -208,6 +216,7 @@ function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
         errMsg: err
       } );
     }
+    Logger.log("--- finished team file: " + tf.getName() + " id: " + tf.getId());
   }
 
 
@@ -232,8 +241,8 @@ function getFileBlob(teamDriveName, parentDirs, file) {
   var mime = file.getMimeType();
   var name = file.getName();
   var blob;
-  Logger.log("***  getFileBlob name: " + name + ", mime: " + mime);
   if (mime == "application/vnd.google-apps.script") {
+    Logger.log("***  getFileBlob mime: google-apps.script, name: " + name + ", mime: " + mime);
     resp = UrlFetchApp.fetch("https://script.google.com/feeds/download/export?id=" + e + "&format=json", {
       method: "GET",
       headers: {"Authorization": "Bearer " + accesstoken},
@@ -242,6 +251,7 @@ function getFileBlob(teamDriveName, parentDirs, file) {
     errors = errors.concat(getErrors(teamDriveName, parentDirs, file, "getFileBlob gs ('+name+')", resp));
     blob = resp.getBlob().setName(name);
   } else if (~mime.indexOf('google-apps')) {
+    Logger.log("***  getFileBlob mime: google-apps, name: " + name + ", mime: " + mime);
     var mimeCode;
     switch (mime) {
       case "application/vnd.google-apps.spreadsheet" :
@@ -256,34 +266,66 @@ function getFileBlob(teamDriveName, parentDirs, file) {
       default: ["application/pdf", name + ".pdf"];
     }
     Logger.log ("***   getFileBlobs   google apps mime: " + mimeCode);
-    resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "/export?mimeType=" + mimeCode[0], {
-      method: "GET",
-      headers: {"Authorization": "Bearer " + accesstoken},
-      muteHttpExceptions: true
-    });
-    errors = errors.concat(getErrors(teamDriveName, parentDirs, file, "getFileBlob ga ('+name+')", resp));
-    blob = resp.getBlob().setName(mimeCode[1]);
+    try {
+      resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "/export?mimeType=" + mimeCode[0], {
+        method: "GET",
+          headers: {"Authorization": "Bearer " + accesstoken},
+            muteHttpExceptions: true
+      });
+      errors = errors.concat(getErrors(teamDriveName, parentDirs, file, "getFileBlob ga ("+name+")", resp));
+      blob = resp.getBlob().setName(mimeCode[1]);
+    } catch (err) {
+      var errMsg = "cannot export file " + name + " (mime: " + mimeCode + ", error: "+err;
+      Logger.log(errMsg);
+      console.log(errMsg);
+      errors.push( {
+        teamDrive: teamDriveName,
+        folders: parentDirs,
+        filename: file,
+        fileId: '',
+        note: "getFileBlob ga Exception caught",
+        errMsg: errMsg
+      } );
+    }
   } else {
-    resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "?alt=media", {
-      method: "GET",
-      headers: {"Authorization": "Bearer " + accesstoken},
-      muteHttpExceptions: true
-    });
-    errors = errors.concat(getErrors(teamDriveName, parentDirs, file, "getFileBlob other ('+name+')", resp));
-    blob = resp.getBlob().setName(name);
-    //Logger.log ("***   getFileBlobs   google apps media?");
+    Logger.log("***  getFileBlob mime: other, name: " + name + ", mime: " + mime);
+    try {
+      resp = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + file.getId() + "?alt=media", {
+        method: "GET",
+          headers: {"Authorization": "Bearer " + accesstoken},
+            muteHttpExceptions: true
+      });
+      errors = errors.concat(getErrors(teamDriveName, parentDirs, file, "getFileBlob other ("+name+")", resp));
+      blob = resp.getBlob().setName(name);
+    } catch (err) {
+      var errMsg = "cannot export file " + name + " (mime: " + mimeCode + ", error: "+err;
+      Logger.log(errMsg);
+      console.log(errMsg);
+      errors.push( {
+        teamDrive: teamDriveName,
+        folders: parentDirs,
+        filename: file,
+        fileId: '',
+        note: "getFileBlob other Exception caught",
+        errMsg: errMsg
+      } );
+    }
   }
   return [blob, errors];
 }
 
 
-function setProps() {
-  // this is the example for setting properties
-  // note actual code is in setProperties.gs (which is not in github repo) or setProperties.example.gs
- var userProperties = PropertiesService.getUserProperties();
-  userProperties.setProperty('reportingEmail', 'xxx@yyy.org'); // email account to send outputs from this script to
-  userProperties.setProperty('backupDriveId', 'xxxSomeIdHerexxx'); // Team Drive used to backup the other team drives
-  userProperties.setProperty('skipDriveId', 'xxxSomeIdHerexxx'); // Team Drive to skip (along with backup team drive)
+function getProps() {
+  // this lists the current property settings out to the log
+  var userProperties = PropertiesService.getUserProperties();
+  var email = userProperties.getProperty('reportingEmail'); // email account to send outputs from this script to
+  Logger.log ("reportingEmail Property: "+email);
+  console.info("reportingEmail Property: "+email);
+  var backupId = userProperties.getProperty('backupDriveId'); // Team Drive used to backup the other team drives
+  Logger.log ("backupDriveId Property: "+backupId);
+  console.info("backupDriveId Property: "+backupId);
+  var skipId = userProperties.getProperty('skipDriveId'); // Team Drive to skip (along with backup team drive)
+  Logger.log ("skipDriveId Property: "+skipId);
+  console.info("skipDriveId Property: "+skipId);
 }
-
 
