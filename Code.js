@@ -48,15 +48,24 @@ function backupTeamDrives() {
       Logger.log("get " + apiUrl + " error: " + response.error);
       response.teamDrives.forEach(function(teamDrive) {
         Logger.log('Team Drive .name: ' + teamDrive.name+' .id: ' + teamDrive.id);
+        
+        var doIt = shouldBackup (teamDrive, backupFolder);
+        Logger.log("doIt: %s", doIt);
+        if (doIt) {
+          console.info("do backup for %s", teamDrive.name);
+        } else {
+          console.info("dont do backup for %s", teamDrive.name);
+        }
+
         if (teamDrive.id === backupFolderId) {
           Logger.log ("SKIP BACKUP FOLDER");
           console.info("Skip Backup Folder");
         } else if (teamDrive.id === skipDriveId) {
           Logger.log ("SKIP ECASE Team Drive");
           console.info("Skip ECASE Team Drive");
-        } else {
-          Logger.log ("PROCESS "+ teamDrive.name +" Team Drive");
-          console.info("Process %s Team Drive", teamDrive.name);
+        } else if (doIt) {
+          Logger.log ("Backup "+ teamDrive.name +" Team Drive");
+          console.info("Backup %s Team Drive", teamDrive.name);
           var subBackupFolderMatches = backupFolder.getFoldersByName(teamDrive.name);
           var subBackupFolder;
           //Logger.log("*** subBackupFolderMatches.hasNext(): "+subBackupFolderMatches.hasNext());
@@ -81,14 +90,19 @@ function backupTeamDrives() {
           Logger.log("***** start Team Drive copy : " + teamDrive.name);
           errors = errors.concat(copyFolder(subBackupFolder, tDrive, teamDrive.name, ""));
           Logger.log("***** finish Team Drive copy : " + teamDrive.name);
+          errors = errors.concat(getReportMessage(teamDrive.name, "Copy completed."));
+        } else {
+          Logger.log("Skip Backup of %s Team Drive", teamDrive.name);
+          console.info("Skip Backup of %s Team Drive", teamDrive.name);
         }
       })
       params.pageToken = response.nextPageToken;
     } while (params.pageToken && countDrives < 3);
   } catch (f) {
+    Logger.log("Main Loop error: %s",f);
     errors.push("Main Loop error: "+f);
   }
-  var messages = ["<table><tr><th>Team Drive</th><th>Folders</th><th>File</th><th>Error</th></tr>"];
+  var messages = ["<table><tr><th>Team Drive</th><th>Folders</th><th>File</th><th>Message</th></tr>"];
   for (err in errors) {
     var e = errors[err];
     var message = ["<tr><td>"+e['teamDrive']+"</td><td>"+e['folders']+"</td><td>"+e['filename']+"</td><td>"+e['errMsg']+"</td></tr>"];
@@ -100,19 +114,24 @@ function backupTeamDrives() {
   var userProperties = PropertiesService.getUserProperties();
   MailApp.sendEmail({
     to: userProperties.getProperty('reportingEmail'),
-    subject: 'Team Drives Backed up Error Report',
-    htmlBody: "<h1>Team Drives Backed up Error Report</h1><br>"+messages.join('<br>')+"<br>Done"
+    subject: 'Team Drives Backed up Report',
+    htmlBody: "<h1>Team Drives Backed up Report</h1><br>"+messages.join('<br>')+"<br>Done"
   });
 }
 
 function listTeamDrives() {
+  errors = [];
+  var userProperties = PropertiesService.getUserProperties();
+  getProps();  // log the current script properties for the app
+  var backupFolderId = userProperties.getProperty('backupDriveId');
+  var backupFolder = DriveApp.getFolderById(backupFolderId);
   try {
     var baseUrl = "https://www.googleapis.com/drive/v3/teamdrives";
     var token = ScriptApp.getOAuthToken();
     var params = {
-        pageSize: 99,
-        fields: "nextPageToken,teamDrives(id,name)"
-      };
+      pageSize: 99,
+      fields: "nextPageToken,teamDrives(id,name)"
+    };
     do {
       var queryString = Object.keys(params).map(function(p) {
         return [encodeURIComponent(p), encodeURIComponent(params[p])].join("=");
@@ -126,6 +145,17 @@ function listTeamDrives() {
       Logger.log("get " + apiUrl + " error: " + response.error);
       response.teamDrives.forEach(function(teamDrive) {
         Logger.log('Team Drive .name: ' + teamDrive.name+' .id: ' + teamDrive.id);
+        //var lastMod = teamDrive.getLastUpdated();
+        //var lastModF = Utilities.formatDate(lastMod, 'UTF', 'yyyy_MMM_dd_HH_mm')
+        //Logger.log("*** team drive %s getLastUpdated: %s", teamFolderName, lastModF);
+        var doIt = shouldBackup (teamDrive, backupFolder);
+        Logger.log("doIt: %s", doIt);
+        if (doIt) {
+          Logger.log("do backup ");
+        } else {
+          Logger.log("dont do backup ");
+        }
+        //
       })
       Logger.log('Team Drive Page is done');
       params.pageToken = response.nextPageToken;
@@ -158,27 +188,151 @@ function getErrors(teamDriveName, folders, file, note, response) {
   return errors;
 }
 
+function getReportMessage(teamDriveName, note) {
+  var errors = [];
+  // simply push the single message into the errors object
+  errors.push( {
+    teamDrive: teamDriveName,
+    folders: "",
+    filename: "",
+    fileId: "",
+    note: note,
+    errMsg: note
+  } );
+  return errors;
+}
+
+function shouldBackup (teamFolder, backupFolder) {
+  Logger.log ("shouldBackup started for %s ", teamFolder.name);
+  var lastDate = getLastDateInDrive(teamFolder);
+  Logger.log("*** actual last updated: %s, %s", lastDate, (+lastDate > 0));
+  
+  if (+lastDate > 0) {
+    Logger.log("have last date > 0");
+    var subBackupFolderMatches = backupFolder.getFoldersByName(teamFolder.name);
+    Logger.log("Matching backup folders for: %s", teamFolder.name);
+    
+    var backupLastDate = 0;
+    // check last date modified in the backups
+    while (subBackupFolderMatches.hasNext()) {
+      var subBackupFolder = subBackupFolderMatches.next();
+      Logger.log("Matched folder: %s", subBackupFolder.getName());
+      var thisLastDate = subBackupFolder.getLastUpdated();
+      if (+thisLastDate > +backupLastDate) {
+        Logger.log ("set last date to %s", thisLastDate);
+        backupLastDate = thisLastDate;
+      } else {
+        Logger.log ("skip setting date for %s", thisLastDate);
+      }
+    }
+    Logger.log("updates have been done since backup %s", (backupLastDate > lastDate));
+    if (backupLastDate < lastDate) {
+      Logger.log ("----- Do backup because %s < %s", backupLastDate, lastDate);
+      return true;
+    } else {
+      Logger.log ("----- Skip backup because %s >= %s", backupLastDate, lastDate);
+      return false;
+    }
+  } else {
+    Logger.log ("----- Skip backup because lastDate <= 0");
+    return false;
+  }
+  
+}
+
+
+
+// get the last date modified in a team drive
+// Note: regular drives accurately get the last modified date
+// Team drives must be calculated from the sub files and top level folders
+function getLastDateInDrive(parentFolder) {
+  try {
+    
+    //Logger.log("getLastDateInDrive' started for %s", drive.name);
+    //var lastMod = drive.getLastUpdated();
+    //Logger.log("drive last date gotten");
+    //var lastModF = Utilities.formatDate(lastMod, 'UTF', 'yyyy_MMM_dd_HH_mm')
+    //Logger.log("drive last date: $s",lastModF);
+    // var ret = lastModF;
+    var ret = 0;
+    Logger.log("getLastDateInDrive parentFolder: %s", parentFolder.name);
+    var parentFolder2 = DriveApp.getFolderById(parentFolder.id);
+    var folders = parentFolder2.getFolders();
+    Logger.log ("loop through folders");
+    while (folders.hasNext()) {
+      var folder = folders.next();
+      Logger.log("*** got folder %s - %s modified at: %s ", folder.getId(), folder.getName(), folder.getLastUpdated());
+      ret = folder.getLastUpdated();
+      if (+folder.getLastUpdated() > +ret) {
+        ret = folder.getLastUpdated();
+      }
+    }
+    
+    var fileMatches = parentFolder2.getFiles();
+    while (fileMatches.hasNext()) {
+      var file = fileMatches.next();
+      Logger.log("got file: %s with last mod date: %s", file.getName(), file.getLastUpdated());
+      if (+file.getLastUpdated() > +ret) {
+        ret = file.getLastUpdated();
+        Logger.log("Updated lastUpdated to %s", ret);
+      } else {
+        Logger.log ("not updated for date: %s", file.getLastUpdated());
+      }
+    }
+  
+  } catch (err) {
+    Logger.log("getLastDateInDrive error "+err);
+    ret = 0;
+  }
+ 
+  return ret;
+}
+
+
 // backup a single team drive for either onetime backups of skipped files or for testing
 function backupTeamDrive() {
   var userProperties = PropertiesService.getUserProperties();
-  //var timeZone = Session.getScriptTimeZone();
-  ///var formattedDate = Utilities.formatDate(new Date(), 'UTF', 'yyyy_dd_MM_HH_mm')
-  //Logger.log("*** backupTeamDrives formattedDate: "+formattedDate);
   var errors = [];
   var backupFolder = DriveApp.getFolderById(userProperties.getProperty('backupDriveId')); // backup folder
   
   // single drive to back up
   //var teamFolder = DriveApp.getFolderById(userProperties.getProperty('skipDriveId')); // Team folder to backup
   //var teamFolderName = "ECASE";
-  var teamFolder = DriveApp.getFolderById("0AN0WJCM9RIS4Uk9PVA");
-  var teamFolderName = "Travel Working";
+  //var teamFolder = DriveApp.getFolderById("0AN0WJCM9RIS4Uk9PVA");
+  //var teamFolderName = "Travel Working";
+  var teamFolder = DriveApp.getFolderById("0AIydUw5G_6FZUk9PVA");
+  //var teamFolder = DriveApp.getFolderById("0APGPxdTzM1hFUk9PVA");
+  var teamFolderName = "_test AWP";
+  //var teamFolderName = teamFolder.getName();
+  //var teamFolderName = teamFolder.name;
+  
+  var lastMod = teamFolder.getLastUpdated();
+  var lastModF = Utilities.formatDate(lastMod, 'UTF', 'yyyy_MMM_dd_HH_mm')
+  Logger.log("*** team drive %s getLastUpdated: %s", teamFolderName, lastModF);
+
+  var lastDate = getLastDateInDrive(teamFolder);
+  Logger.log("*** actual last updated: %s", lastDate);
   
   var subBackupFolderMatches = backupFolder.getFoldersByName(teamFolderName);
-  var subBackupFolder;
   console.info("Process %s Team Drive", teamFolderName);
-  //Logger.log("*** subBackupFolderMatches.hasNext(): "+subBackupFolderMatches.hasNext());
+  
+  var backupLastDate = 0;
+  // check last date modified in the backups
   while (subBackupFolderMatches.hasNext()) {
-    subBackupFolder = subBackupFolderMatches.next();
+    var subBackupFolder = subBackupFolderMatches.next();
+    var thisLastDate = getLastDateInDrive(subBackupFolder);
+    if (+thisLastDate > +backupLastDate) {
+      backupLastDate = thisLastDate;
+    }
+  }
+  if (backupLastDate > lastDate) {
+    Logger.log ("Do backup because %s > $s", backupLastDate, lastDate);
+  } else {
+    Logger.log ("Skip backup because %s <= $s", backupLastDate, lastDate);
+  }
+    
+  while (false) { // (subBackupFolderMatches.hasNext()) {
+    var subBackupFolder = subBackupFolderMatches.next();
     //Logger.log("*** subBackupFolder.getId(): "+subBackupFolder.getId());
     var delUrl = "https://www.googleapis.com/drive/v3/files/"+subBackupFolder.getId()+"?supportsTeamDrives=true";
     var accesstoken = ScriptApp.getOAuthToken();
@@ -189,10 +343,10 @@ function backupTeamDrive() {
     });
     errors = errors.concat(getErrors(teamFolder.getName(), "", subBackupFolder, 'Delete backup folder ('+subBackupFolder+")", resp));
   }
-  //Logger.log("*** Create Outreach folder");
-  subBackupFolder = backupFolder.createFolder(teamFolderName);
+  //Logger.log("*** Create backup folder");
+//  subBackupFolder = backupFolder.createFolder(teamFolderName);
   // Copy all sub folders (recursively)
-  errors = errors.concat(copyFolder(subBackupFolder, teamFolder, subBackupFolder, ""));
+//  errors = errors.concat(copyFolder(subBackupFolder, teamFolder, subBackupFolder, ""));
   var messages = ["<table><tr><th>Team Drive</th><th>Folders</th><th>File</th><th>Error</th></tr>"];
   for (err in errors) {
     var e = errors[err];
@@ -203,12 +357,13 @@ function backupTeamDrive() {
   }
   messages.push("</table>");
   var userProperties = PropertiesService.getUserProperties();
-  MailApp.sendEmail({
-    to: userProperties.getProperty('reportingEmail'),
-    subject: teamFolderName+' Team Folder Manual Backup',
-    htmlBody: "<h1>"+teamFolderName+" Backup drives error report</h1><br>"+messages.join('<br>')+"<br>Done"
-  });
+//  MailApp.sendEmail({
+//    to: userProperties.getProperty('reportingEmail'),
+//    subject: teamFolderName+' Team Folder Manual Backup',
+//    htmlBody: "<h1>"+teamFolderName+" Backup drives error report</h1><br>"+messages.join('<br>')+"<br>Done"
+//  });
 }
+
 
 
 function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
@@ -222,7 +377,22 @@ function copyFolder(backupFolder, teamFolder, teamDriveName, parentDirs) {
   // update or create new each file in the team drive folder
   while (teamFiles.hasNext()) {
     var tf = teamFiles.next();
-    Logger.log("--- start : " + teamDriveName + " - " + parentDirs + " - " + tf.getName());
+    var fileModDate = Utilities.formatDate(tf.getLastUpdated(), "GMT+5", "yyyy-MMM-dd")
+    Logger.log("--- start : " + teamDriveName + " - " + parentDirs + " - " + tf.getName() + " - " + fileModDate);
+    // Note we do not need to check existing files in backup directory, as we have previously deleted the entire directory
+    //var buFilesMatched = backupFolder.getFilesByName();
+    //var matchedFile = null;
+    //while (buFilesMatched.hasNext()) {
+    //  if (matchedFile === null) {
+    //    matchedFile = buFilesMatched.next();
+    //  } else {
+    //    var dupFile = buFilesMatched.next();
+    //    Logger.log("WARNING - duplicate file name for " + dupFile);
+    //  }
+    //  var file = buFilesMatched.next();
+    //  Logger.log(file.getName());
+    //}
+
     var retBlob = getFileBlob(teamDriveName, parentDirs, tf);
     var blob = retBlob[0];
     errors = errors.concat(retBlob[1]);
