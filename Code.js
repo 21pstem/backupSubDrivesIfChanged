@@ -45,12 +45,12 @@ function listTeamDrives() {
             // go on to next team drive
             break;
           case 'full':
-            copySubFolders(teamDrive.name, backupFolderId);
-            copyFiles(teamDrive.name, backupFolderId)
+            //copySubFolders(teamDrive.name, backupFolderId);
+            //copyFiles(teamDrive.name, backupFolderId)
             break;
           case 'split':
-            splitSubFolders(teamDrive.name, backupFolderId);
-            copyFiles(teamDrive.name, backupFolderId)
+            //splitSubFolders(teamDrive.name, backupFolderId);
+            //copyFiles(teamDrive.name, backupFolderId)
             break;
           default:
             Logger.log("mismatched status code");
@@ -68,23 +68,27 @@ function listTeamDrives() {
 function backupOnlyOneTeamDrive() {
   var scriptProperties = PropertiesService.getScriptProperties();
   //scriptProperties.setProperty("OneTime", "_AWP test drive");
-  scriptProperties.setProperty("OneTime", "_test AWP");
+  //scriptProperties.setProperty("OneTime", "_test AWP");
   //scriptProperties.setProperty("OneTime", "Applications");
   //scriptProperties.setProperty("OneTime", "Cairo office");
+  //scriptProperties.setProperty("OneTime", "CapstoneAppMaterials");
   //scriptProperties.setProperty("OneTime", "Component 2 Working");
   //scriptProperties.setProperty("OneTime", "CurriculumAppMaterials");
   //scriptProperties.setProperty("OneTime", "ECASE");
+  scriptProperties.setProperty("OneTime", "English");
   //scriptProperties.setProperty("OneTime", "IHE Working");
   //scriptProperties.setProperty("OneTime", "Leadership Working");
   //scriptProperties.setProperty("OneTime", "Outreach");
   //scriptProperties.setProperty("OneTime", "PDI Working");
   //scriptProperties.setProperty("OneTime", "Quarterly Report Team");
   //scriptProperties.setProperty("OneTime", "STEAM School Working");
+  //scriptProperties.setProperty("OneTime", "STESSA - Conshy Internal Staff ONLY");
+  //scriptProperties.setProperty("OneTime", "STESSA Events");
   //scriptProperties.setProperty("OneTime", "STESSA Personnel Travel Documents (Passports & ELFs) - JB & DRD Access ONLY");
   //scriptProperties.setProperty("OneTime", "STESSA Shared Docs");
   //scriptProperties.setProperty("OneTime", "STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)");
   //scriptProperties.setProperty("OneTime", "STESSA");
-  //scriptProperties.setProperty("XOneTimeX", "TeamFoldersBackups");
+  ////scriptProperties.setProperty("XOneTimeX", "TeamFoldersBackups");
   //scriptProperties.setProperty("OneTime", "Technology Curriculum");
   //scriptProperties.setProperty("OneTime", "Travel Working");
   //scriptProperties.setProperty("OneTime", "vvvvv");
@@ -140,10 +144,17 @@ function backupTeamDrives() {
         //Logger.log("buStatus object");
         //Logger.log(buStatus);
         //Logger.log ("backupFolderId: "+backupFolderId);
-        if (oneTime !== "" && oneTime !== teamDriveName) {
-          // one time run for a different team drive than this one, skip it for now
-          //Logger.log("***** skipping %s team drive, it is not the one time backup of %s", teamDriveName, oneTime);
-          buStatus.code = 'skip'
+        // If oneTime run, set the status flags appropriately
+        if (oneTime !== "") {
+          if (oneTime === teamDriveName) {
+            // force a full backup of the matching drive
+            buStatus.code = 'full';
+            buStatus.started = '';
+            buStatus.completed = '';
+          } else {
+            // skip other team drives
+            buStatus.code = 'skip';
+          }
         }
         switch(buStatus.code) {
           case "skip":
@@ -278,6 +289,10 @@ function setBackupStatus(folderName, status, started, completed) {
 }
 
 function listAllProperties() {
+  //setBackupStatus("TeamFoldersBackups", 'skip', '', '');
+  //setBackupStatus("", 'skip', '', '');
+  //setBackupStatus("English", 'skip', '', '');
+
   var scriptProperties = PropertiesService.getScriptProperties();
   var scriptKeys = scriptProperties.getKeys();
   Logger.log(scriptKeys);
@@ -289,8 +304,6 @@ function listAllProperties() {
     //  setBackupStatus(keyStr.split("_")[1], 'full', today, today);
     //}
   }
-  //setBackupStatus("TeamFoldersBackups", 'skip', '', '');
-  //setBackupStatus("", 'skip', '', '');
 }
 
 
