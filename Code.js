@@ -21,7 +21,7 @@ function backupOnlyOneTeamDrive() {
   //scriptProperties.setProperty("OneTime", "Component 2 Working");
   //scriptProperties.setProperty("OneTime", "CurriculumAppMaterials");
   //scriptProperties.setProperty("OneTime", "ECASE");
-  scriptProperties.setProperty("OneTime", "English");
+  //scriptProperties.setProperty("OneTime", "English");
   //scriptProperties.setProperty("OneTime", "IHE Working");
   //scriptProperties.setProperty("OneTime", "Leadership Working");
   //scriptProperties.setProperty("OneTime", "Outreach");
@@ -32,14 +32,16 @@ function backupOnlyOneTeamDrive() {
   //scriptProperties.setProperty("OneTime", "STESSA Events");
   //scriptProperties.setProperty("OneTime", "STESSA Personnel Travel Documents (Passports & ELFs) - JB & DRD Access ONLY");
   //scriptProperties.setProperty("OneTime", "STESSA Shared Docs");
-  //scriptProperties.setProperty("OneTime", "STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)");
+  scriptProperties.setProperty("OneTime", "STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)");
   //scriptProperties.setProperty("OneTime", "STESSA");
   ////scriptProperties.setProperty("XOneTimeX", "TeamFoldersBackups");
   //scriptProperties.setProperty("OneTime", "Technology Curriculum");
   //scriptProperties.setProperty("OneTime", "Travel Working");
   //scriptProperties.setProperty("OneTime", "vvvvv");
+  scriptProperties.setProperty("Debugging", "true");
   backupTeamDrives();
   scriptProperties.setProperty("OneTime", "");
+  scriptProperties.setProperty("Debugging", "false");
 }
 
 
@@ -49,11 +51,12 @@ function backupTeamDrives() {
   getProps();  // log the current script properties for the app
 
   var errors = [];  // array of errors for emailed error report (sent to email address in reportingEmail property);
-  //try {
+  try {
     var backupFolderId = scriptProperties.getProperty('backupDriveId');
     //Logger.log("backupFolderId "+backupFolderId);
     var backupFolder = DriveApp.getFolderById(backupFolderId);
     var buDrive = DriveApp.getFolderById(backupFolderId);
+    var debugging = scriptProperties.getProperty("Debugging");
     var oneTime = scriptProperties.getProperty("OneTime");
     if (oneTime !== "") {
       // one time run for a specific team drive. Logging and reporting will indicate skip for all other team drives.
@@ -92,9 +95,13 @@ function backupTeamDrives() {
         //Logger.log ("backupFolderId: "+backupFolderId);
         // If oneTime run, set the status flags appropriately
         if (oneTime !== "") {
+          // force a backup of the matching drive
           if (oneTime === teamDriveName) {
-            // force a full backup of the matching drive
-            buStatus.code = 'full';
+            if (buStatus.code === 'skip') {
+              // if set to skip, set it to full
+              // otherwise leave type of backup alone
+              buStatus.code = 'full';
+            }
             buStatus.started = '';
             buStatus.completed = '';
           } else {
@@ -102,6 +109,7 @@ function backupTeamDrives() {
             buStatus.code = 'skip';
           }
         }
+        Logger.log("team drive %s - buStatus: %s - %s - %s", teamDriveName, buStatus.code, buStatus.started, buStatus.completed);
         switch(buStatus.code) {
           case "skip":
             // go on to next team drive
@@ -111,28 +119,29 @@ function backupTeamDrives() {
           case 'full':
             //Logger.log("buDrive.getDateCreated(): %s", buDrive.getDateCreated());
             var lastModF = Utilities.formatDate(buDrive.getDateCreated(), 'UTF', 'yyyy_MM_dd_HH_mm')
-            //Logger.log("drive last modified date: %s",lastModF);
-            //Logger.log("buStatus.started: %s", buStatus.started);
-            //Logger.log("buStatus.completed: %s", buStatus.completed);
+            Logger.log("drive last modified date: %s",lastModF);
             if (buStatus.started === "" || lastModF > buStatus.started) {
-              var msg = Utilities.formatString("STARTED Backup for Team drive %s at %s", teamDriveName, new Date());
-              console.info(msg);
-              errors = errors.concat(getReportMessage(teamDriveName, '', msg));
               // mark team drive as started
-              var today = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
-              setBackupStatus(teamDriveName, 'full', today, '');
-              errors = errors.concat(deleteBuFolders(teamDriveName, buDrive));
-              //Logger.log("errors object from deleteBuFolders");
-              //Logger.log(errors);
-              // now create a new empty one for the backups to go to
-              var newBackupFolder = buDrive.createFolder(teamDriveName);
-              var tDrive = DriveApp.getFolderById(teamDrive.id);
-              errors = errors.concat(copyFiles(tDrive, newBackupFolder, teamDriveName));
-              errors = errors.concat(copySubFolders(tDrive, newBackupFolder, teamDriveName));
-              // mark team drive as completed
-              today = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
-              Logger.log("today: %s", today);
-              setBackupStatus(teamDriveName, 'full', today, today);
+              if (debugging === "true") {
+                var msg = Utilities.formatString("Debugging full backup for %s", teamDriveName);
+                Logger.log(msg);
+                errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+              } else {
+                var msg = Utilities.formatString("STARTED Backup for Team drive %s at %s", teamDriveName, new Date());
+                console.info(msg);
+                errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+                setBackupStatus(teamDriveName, 'full', today, '');
+                errors = errors.concat(deleteBuFolders(teamDriveName, buDrive));
+                // now create a new empty one for the backups to go to
+                var newBackupFolder = buDrive.createFolder(teamDriveName);
+                var tDrive = DriveApp.getFolderById(teamDrive.id);
+                errors = errors.concat(copyFiles(tDrive, newBackupFolder, teamDriveName));
+                errors = errors.concat(copySubFolders(tDrive, newBackupFolder, teamDriveName));
+                // mark team drive as completed
+                var today = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
+                Logger.log("today: %s", today);
+                setBackupStatus(teamDriveName, 'full', today, today);
+              }
               var msg = Utilities.formatString("COMPLETED Backup for Team drive %s at %s", teamDriveName, new Date());
               console.info(msg);
               errors = errors.concat(getReportMessage(teamDriveName, '', msg));
@@ -143,11 +152,40 @@ function backupTeamDrives() {
             }
            break;
           case 'split':
-            console.info("***** SPLIT THE %s team drive, it is set to 'split'", teamDriveName);
-            errors = errors.concat(getReportMessage(teamDriveName, '', 'SPLIT the Team drive'));
-            //errors = errors.concat(copyFiles(tDrive, buDrive, teamDriveName));
-            //splitSubFolders(teamDriveName, backupFolderId, backupFolder);
-            break;
+            var lastModF = Utilities.formatDate(buDrive.getDateCreated(), 'UTF', 'yyyy_MM_dd_HH_mm')
+            if (buStatus.started === "" || lastModF > buStatus.started) {
+              var oldBackupFolder = getFirstFolderByName(buDrive, teamDriveName)
+              var tDrive = DriveApp.getFolderById(teamDrive.id);
+              var buStatus = getBackupStatus (teamDriveName+".root");
+              Logger.log("bu status for root is %s, %s, %s", buStatus.code, buStatus.started, buStatus.completed);
+              var msg;
+              if (buStatus.code === "full") {
+                msg = Utilities.formatString("STARTED split Team drive %s at %s", teamDriveName, new Date());
+                console.info(msg);
+                errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+                
+                errors = errors.concat(copyFiles(tDrive, oldBackupFolder, teamDriveName));
+                
+                msg = Utilities.formatString("FINISHED split Team drive %s at %s", teamDriveName, new Date());
+              } else {
+                msg = Utilities.formatString("ERROR - unknown status for %s.root", teamDriveName);
+              }
+              console.info(msg);
+              errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+              
+              errors = errors.concat(splitSubFolders(tDrive, oldBackupFolder, teamDriveName));
+              // mark team drive as completed
+              var today = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
+              Logger.log("today: %s", today);
+              var msg = Utilities.formatString("COMPLETED Backup for Team drive %s at %s", teamDriveName, new Date());
+              console.info(msg);
+              errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+            } else {
+              var msg = Utilities.formatString("SKIPPED team drive, last changes were on: %s", lastModF);
+              console.info(msg);
+              errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+            }
+           break;
           default:
             console.info("***** ERROR the %s team drive has invalid status code",teamDriveName);
             errors = errors.concat(getReportMessage(teamDriveName, '', 'ERROR the team drive has invalid status code'));
@@ -156,22 +194,17 @@ function backupTeamDrives() {
       })
       params.pageToken = response.nextPageToken;
     } while (params.pageToken && countDrives < 3);
-  //} catch (f) {
-  //  Logger.log("Main Loop error: %s",f);
-  //  errors.push("Main Loop error: "+f);
-  //}
-  //Logger.log("final errors object: ");
-  //Logger.log(errors);
+  } catch (f) {
+    Logger.log("Main Loop error: %s",f);
+    errors.push("Main Loop error: "+f);
+  }
   console.info("start building email message");
   var messages = ["<table><tr><th>Team Drive</th><th>Folders</th><th>File</th><th>Message</th></tr>"];
   for (err in errors) {
     // skip null errors (where did that come from?)
     if (!!err) {
       var e = errors[err];
-      //Logger.log("final errors object: ");
-      //Logger.log(e);
       var message = ["<tr><td>"+e['teamDrive']+"</td><td>"+e['folders']+"</td><td>"+e['filename']+"</td><td>"+e['errMsg']+"</td></tr>"];
-      //Logger.log("ERROR: '"+message);
       messages.push(message);
     }
   }
@@ -188,13 +221,13 @@ function deleteBuFolders(folderName, backupFolder) {
   var errors = [];
   var subBackupFolderMatches = backupFolder.getFoldersByName(folderName);
   var subBackupFolder;
-  //Logger.log("*** deleteBuFolders: "+folderName);
+  Logger.log("*** deleteBuFolders: "+folderName);
   while (subBackupFolderMatches.hasNext()) {
     subBackupFolder = subBackupFolderMatches.next();
     var delUrl = "https://www.googleapis.com/drive/v3/files/"+subBackupFolder.getId()+"?supportsTeamDrives=true";
-    //Logger.log("*** delUrl: "+delUrl);
+    Logger.log("*** delUrl: "+delUrl);
     var accesstoken = ScriptApp.getOAuthToken();
-    //Logger.log("*** accesstoken: "+accesstoken);
+    Logger.log("*** accesstoken: "+accesstoken);
     
     // delete folder rest api docs: https://developers.google.com/drive/api/v3/reference/files/delete
     resp = UrlFetchApp.fetch(delUrl, {
@@ -206,6 +239,19 @@ function deleteBuFolders(folderName, backupFolder) {
   }
    return errors;  
 }
+
+function getFirstFolderByName(parentFolder, folderName) {
+  Logger.log("*** getFirstFolderByName %s in parent %s: ", folderName, parentFolder.getName());
+  var errors = [];
+  var folderMatches = parentFolder.getFoldersByName(folderName);
+  var matchedFolder;
+  if (folderMatches.hasNext()) {
+    matchedFolder = folderMatches.next();
+    Logger.log("hasNext folder name: %s", matchedFolder.getName());
+  }
+  return matchedFolder;  
+}
+
 
 // determine how to backup this team drive from script property (team drive / folder name)
 function getBackupStatus (folderName) {
@@ -238,6 +284,8 @@ function listAllProperties() {
   //setBackupStatus("TeamFoldersBackups", 'skip', '', '');
   //setBackupStatus("", 'skip', '', '');
   //setBackupStatus("English", 'skip', '', '');
+  //setBackupStatus("STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)", 'split', '', '');
+  setBackupStatus("STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)", 'full', '', '');
 
   var scriptProperties = PropertiesService.getScriptProperties();
   var scriptKeys = scriptProperties.getKeys();
@@ -256,6 +304,10 @@ function listAllProperties() {
 // copy just the sub folders.
 function copySubFolders(teamFolder, backupFolder, parentDirs) {
   //Logger.log('copySubFolders folderName: ' + parentDirs);
+  var scriptProperties = PropertiesService.getScriptProperties();
+  var debugging = scriptProperties.getProperty("Debugging");
+  Logger.log('splitSubFolders debugging: %s', debugging);
+
   var errors = [];
 
   // copy all sub folders in the team drive folder
@@ -265,7 +317,12 @@ function copySubFolders(teamFolder, backupFolder, parentDirs) {
     var thisFolderName = parentDirs+"."+tfolder.getName();
     //Logger.log("*** copy team folder: " + tfolder.getName() + " id: " + tfolder.getId());
     // create new folder
-    var subBackupFolder = backupFolder.createFolder(tfolder.getName());
+    var subBackupFolder;
+    if (debugging === "true") {
+      subBackupFolder = backupFolder;  // place holder folder
+    } else {
+      subBackupFolder = backupFolder.createFolder(tfolder.getName());
+    }
     errors = errors.concat(copyFiles(tfolder, subBackupFolder, thisFolderName));
     errors = errors.concat(copySubFolders(tfolder, subBackupFolder, thisFolderName));
     //Logger.log("*** finished sub folder: " + thisFolderName);
@@ -276,7 +333,10 @@ function copySubFolders(teamFolder, backupFolder, parentDirs) {
 
 // copy just the files.
 function copyFiles(teamFolder, backupFolder, parentDirs) {
-  //Logger.log('copyFiles teamFolder: ' + teamFolder);
+  Logger.log('copyFiles teamFolder: %s to %s in %s', teamFolder, backupFolder, parentDirs);
+  var scriptProperties = PropertiesService.getScriptProperties();
+  var debugging = scriptProperties.getProperty("Debugging");
+  Logger.log('splitSubFolders debugging: %s', debugging);
   var errors = [];
   var teamFiles = teamFolder.getFiles();
 
@@ -285,32 +345,37 @@ function copyFiles(teamFolder, backupFolder, parentDirs) {
     var tf = teamFiles.next();
     //Logger.log("-- Copy file %s",tf.getName());
     //var fileModDate = Utilities.formatDate(tf.getLastUpdated(), "GMT+5", "yyyy-MMM-dd")
-    var retBlob = getFileBlob(teamFolder, parentDirs, tf);
-    var blob = retBlob[0];
-    errors = errors.concat(retBlob[1]);
-    //Logger.log("got file blob, now create file!");
-    try {
-      // if blob is error JSON, then pass up the error
-      if (blob.getDataAsString().length < 1000) {
-        errs = getErrors(teamFolder, parentDirs, tf, 'get file blob ('+backupFolder+'/'+tf.getName()+')',blob.getDataAsString());
-        if (errs.length > 0) {
-          errors = errors.concat(errs);
+    if (debugging === "true") {
+      Logger.log("Debugging - To create file %s",tf.getName());
+    } else {
+      var retBlob = getFileBlob(teamFolder, parentDirs, tf);
+      var blob = retBlob[0];
+      errors = errors.concat(retBlob[1]);
+      //Logger.log("got file blob, now create file!");
+      try {
+        // if blob is error JSON, then pass up the error
+        if (blob.getDataAsString().length < 1000) {
+          errs = getErrors(teamFolder, parentDirs, tf, 'get file blob ('+backupFolder+'/'+tf.getName()+')',blob.getDataAsString());
+          if (errs.length > 0) {
+            errors = errors.concat(errs);
+          }
         }
+        // create the file from the blob regardless of error
+        //Logger.log("Created file %s",tf.getName());
+        newFile = backupFolder.createFile(blob);
+      } catch (err) {
+        Logger.log("create file "+tf.getName()+" ERROR: "+err);
+        errors.push( {
+          teamDrive: teamFolder,
+          folders: parentDirs,
+          filename: tf.getName(),
+          fileId: tf.getId(),
+          note: "Exception caught",
+          errMsg: err
+        } );
       }
-      // create the file from the blob regardless of error
-      //Logger.log("Created file %s",tf.getName());
-      newFile = backupFolder.createFile(blob);
-    } catch (err) {
-      Logger.log("create file "+tf.getName()+" ERROR: "+err);
-      errors.push( {
-        teamDrive: teamFolder,
-        folders: parentDirs,
-        filename: tf.getName(),
-        fileId: tf.getId(),
-        note: "Exception caught",
-        errMsg: err
-      } );
     }
+
     //Logger.log("--- finished : " + folderName + " - " + parentDirs + " - " + tf.getName());
   } // end while (teamFiles.hasNext())
 
@@ -318,10 +383,48 @@ function copyFiles(teamFolder, backupFolder, parentDirs) {
 }
 
 // do separate backups to backups team drive for each sub folder
-function splitSubFolders(folderName, backupFolderId, backupFolder) {
-  Logger.log('splitSubFolders folderName: ' + folderName);
-  var ret = new BackupStatus("123","","");
-  return ret;
+function splitSubFolders(teamFolder, backupFolder, parentDirs) {
+  //Logger.log('splitSubFolders backupFolder.getName(): %s', backupFolder.getName());
+  var scriptProperties = PropertiesService.getScriptProperties();
+  var debugging = scriptProperties.getProperty("Debugging");
+
+  var errors = [];
+
+  var folders = teamFolder.getFolders();
+  while (folders.hasNext()) {
+    var tfolder = folders.next();
+    var thisFolderName = parentDirs+"."+tfolder.getName();
+    // create new folder
+    var buStatus = getBackupStatus (thisFolderName);
+    //Logger.log("bu status for %s is %s, %s, %s", thisFolderName, buStatus.code, buStatus.started, buStatus.completed);
+    //Logger.log('BACKUP splitSubFolders tFolder: %s', tfolder.getName());
+    //Logger.log('       splitSubFolders backupFolder: %s', backupFolder.getName());
+    var subBackupFolder = getFirstFolderByName(backupFolder, tfolder.getName());
+    var lastModF = "";
+    if (subBackupFolder) {
+      // old backup folder exists, check the date
+      lastModF = Utilities.formatDate(subBackupFolder.getDateCreated(), 'UTF', 'yyyy_MM_dd_HH_mm');
+    }
+    //Logger.log("drive last modified date: %s, >? %s",lastModF, (lastModF > buStatus.started));
+
+    if (buStatus.started === "" || lastModF > buStatus.started) {
+      var msg = Utilities.formatString("STARTED Backup for Split Team drive %s at %s", teamDriveName, new Date());
+      console.info(msg);
+      errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+      
+      errors = errors.concat(copyFiles(tfolder, subBackupFolder, thisFolderName));
+      errors = errors.concat(copySubFolders(tfolder, subBackupFolder, thisFolderName));
+      
+      var msg = Utilities.formatString("FINISHED Backup for Split Team drive %s at %s", teamDriveName, new Date());
+      console.info(msg);
+      errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+    } else {
+      Logger.log('SKIPPED splitSubFolders tFolder: %s', tfolder.getName());
+    }
+  }
+  //var ret = new BackupStatus("123","","");
+  //return ret;
+  return errors;
 }
 
 // object to store the backup status of a team drive (kept in a script property)
