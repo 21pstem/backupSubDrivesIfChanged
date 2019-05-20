@@ -11,60 +11,6 @@
 // ToDo: make skipDriveId property a JSON array to allow skipping multiple drives
 // ToDo: Automatically skip deleting and rebuilding drives if nothing has changed (check dates in all sub-folders and files)
 
-
-// function to test processing of team drives (without doing backups).
-// used to update backupTeamDrives function
-function listTeamDrives() {
-  errors = [];
-  var scriptProperties = PropertiesService.getScriptProperties();
-  getProps();  // log the current script properties for the app
-  try {
-    var baseUrl = "https://www.googleapis.com/drive/v3/teamdrives";
-    var token = ScriptApp.getOAuthToken();
-    var params = {
-      pageSize: 99,
-      fields: "nextPageToken,teamDrives(id,name)"
-    };
-    do {
-      var queryString = Object.keys(params).map(function(p) {
-        return [encodeURIComponent(p), encodeURIComponent(params[p])].join("=");
-      }).join("&amp;");
-      var apiUrl = baseUrl + "?" + queryString;
-      var response = JSON.parse(
-        UrlFetchApp.fetch( apiUrl, {
-          method: "GET",
-          headers: {"Authorization": "Bearer " + token}
-        }).getContentText());
-      Logger.log("get " + apiUrl + " error: " + response.error);
-      response.teamDrives.forEach(function(teamDrive) {
-        Logger.log('Team Drive .name: ' + teamDrive.name+' .id: ' + teamDrive.id);
-        var buStatus = getBackupStatus (teamDrive.name, backupFolderId);
-        Logger.log(buStatus);
-        switch(buStatus.code) {
-          case "skip":
-            // go on to next team drive
-            break;
-          case 'full':
-            //copySubFolders(teamDrive.name, backupFolderId);
-            //copyFiles(teamDrive.name, backupFolderId)
-            break;
-          case 'split':
-            //splitSubFolders(teamDrive.name, backupFolderId);
-            //copyFiles(teamDrive.name, backupFolderId)
-            break;
-          default:
-            Logger.log("mismatched status code");
-        }
-      })
-      params.pageToken = response.nextPageToken;
-    } while (params.pageToken);
-  } catch (f) {
-    errors.push("Main Loop error: "+f);
-  }
-}
-
- 
-
 function backupOnlyOneTeamDrive() {
   var scriptProperties = PropertiesService.getScriptProperties();
   //scriptProperties.setProperty("OneTime", "_AWP test drive");
