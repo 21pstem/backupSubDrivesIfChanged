@@ -11,5 +11,9 @@
       "version": "directory_v1"
     }]
   },
+  "webapp": {
+    "access": "MYSELF",
+    "executeAs": "USER_DEPLOYING"
+  },
   "exceptionLogging": "STACKDRIVER"
 }

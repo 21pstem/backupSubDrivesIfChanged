@@ -88,7 +88,6 @@ function backupTeamDrives() {
         pageSize: 99,
         fields: "nextPageToken,teamDrives(id,name)"
       };
-    var countDrives = 0;
     do {
       var queryString = Object.keys(params).map(function(p) {
         return [encodeURIComponent(p), encodeURIComponent(params[p])].join("=");
@@ -195,7 +194,7 @@ function backupTeamDrives() {
         //Logger.log("*** finished Team Drive copy for: %s", teamDriveName);
       })
       params.pageToken = response.nextPageToken;
-    } while (params.pageToken && countDrives < 3);
+    } while (params.pageToken);
   //} catch (f) {
   //  msg = Utilities.formatString("Main Loop error: %s",f);
   //  console.info(msg);
@@ -285,6 +284,22 @@ function getFirstFolderByName(parentFolder, folderName) {
   return matchedFolder;  
 }
 
+
+// object to store the backup status of a team drive (kept in a script property)
+// status:
+//    skip - always skip this team folder (such as the backup folder)
+//    full - always do a backup of all files in the team folder to a folder in the backup team drive
+//    split - (testing) do a full backup of all top level folders in the team drive to subfolders in the backup folder
+// started: yyyy_mm_dd_hh_mm formatted date/time for when backup of this team drive started
+// completed: yyyy_mm_dd_hh_mm formatted date/time for when backup of this team drive was finised
+//    note: at start of backup it is set to an empty string.
+function BackupStatus(code, started, completed) {
+  this.code = code;
+  this.started = started;
+  this.completed = completed;
+}
+
+
 // determine how to backup this team drive from script property (team drive / folder name)
 function getBackupStatus (folderName) {
   var scriptProperties = PropertiesService.getScriptProperties();
@@ -321,23 +336,39 @@ function setBackupStatusCode(folderName, code) {
   return buStatus;
 }
 
+// list all script properties in key order
+// Keeping in order keeps split team drive properties together
 function listAllProperties() {
+  
+  // property settings once used.
   //setBackupStatus("TeamFoldersBackups", 'skip', '', '');
   //setBackupStatus("", 'skip', '', '');
   //setBackupStatus("English", 'skip', '', '');
   //setBackupStatus("STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)", 'split', '', '');
   //setBackupStatus("STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)", 'full', '', '');
+  //setBackupStatus("ECASE", 'skip', '', '');
+  //setBackupStatus("HE Summer 2019 (working)", 'split', '', '');
+  //setBackupStatus("Component 2 Working", 'split', '', '');
 
   var scriptProperties = PropertiesService.getScriptProperties();
+  
+  scriptProperties.setProperty("OneTime", "");
+  scriptProperties.setProperty("OneTest", "");
+
   var scriptKeys = scriptProperties.getKeys();
   Logger.log(scriptKeys);
-  var today = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
-  for (key in scriptKeys) {
+  var list = {};
+  var keys = [];
+  for (var key in scriptKeys) {
     var keyStr = scriptKeys[key]
-    Logger.log("Property: %s = %s", keyStr, scriptProperties.getProperty(keyStr));
-    //if (keyStr.split("_")[0] === "status") {
-    //  setBackupStatus(keyStr.split("_")[1], 'full', today, today);
-    //}
+    keys.push(keyStr);
+    var stat = scriptProperties.getProperty(keyStr)
+    var props = stat.split(";");
+    list[keyStr] = props;
+  }
+  keys.sort();
+  for (var i = 0; i < keys.length; i++) {
+    Logger.log("key: %s = value: %s", keys[i], list[keys[i]])
   }
 }
 
@@ -352,6 +383,7 @@ function copySubFolders(teamFolder, backupFolder, parentDirs) {
 
   // copy all sub folders in the team drive folder
   var folders = teamFolder.getFolders();
+  try {
   while (folders.hasNext()) {
     var tfolder = folders.next();
     var thisFolderName = parentDirs+"."+tfolder.getName();
@@ -362,6 +394,11 @@ function copySubFolders(teamFolder, backupFolder, parentDirs) {
     errors = errors.concat(copyFiles(tfolder, subBackupFolder, thisFolderName));
     errors = errors.concat(copySubFolders(tfolder, subBackupFolder, thisFolderName));
     //Logger.log("*** finished sub folder: " + thisFolderName);
+  }
+  } catch (err) {
+    var msg = Utilities.formatString("ERROR copySubFolders parentDirs %s - folder: %s - error: %s", parentDirs, backupFolder.getName(), err);
+    console.info(msg);
+    errors = errors.concat(getReportMessage(parentDirs, backupFolder.getName(), msg));
   }
  
   return errors;
@@ -519,21 +556,6 @@ function deleteFolder(folder) {
   });
   errors = errors.concat(getErrors(folder.getName(), "", "", 'Delete backup folder ('+folder.getName()+")", resp));    
 }
-
-// object to store the backup status of a team drive (kept in a script property)
-// status:
-//    skip - always skip this team folder (such as the backup folder)
-//    full - always do a backup of all files in the team folder to a folder in the backup team drive
-//    split - (testing) do a full backup of all top level folders in the team drive to subfolders in the backup folder
-// started: yyyy_mm_dd_hh_mm formatted date/time for when backup of this team drive started
-// completed: yyyy_mm_dd_hh_mm formatted date/time for when backup of this team drive was finised
-//    note: at start of backup it is set to an empty string.
-function BackupStatus(code, started, completed) {
-  this.code = code;
-  this.started = started;
-  this.completed = completed;
-}
-
 
 function getErrors(teamDriveName, folders, file, note, response) {
   var errors = [];
