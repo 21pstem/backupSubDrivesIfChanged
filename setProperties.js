@@ -19,9 +19,8 @@ function setProps() {
   // This function is used to set the project properties
   // This is needed to be run before backups will work.
   var scriptProperties = PropertiesService.getScriptProperties();
-  scriptProperties.setProperty("status_TeamFoldersBackups","skip;;");
-  scriptProperties.setProperty('reportingEmail', 'dtaylor@21pstem.org'); // email account to send outputs from this script to
-  scriptProperties.setProperty('backupDriveId', '0ABF2MikZKXHsUk9PVA'); // Team Drive used to backup the other team drives
+  // scriptProperties.setProperty("status_TeamFoldersBackups","skip;;");
+  // scriptProperties.setProperty('reportingEmail', 'dtaylor@21pstem.org'); // email account to send outputs from this script to
+  // scriptProperties.setProperty('backupDriveId', '0ABF2MikZKXHsUk9PVA'); // Team Drive used to backup the other team drives
   // userProperties.setProperty('skipDriveId', '0AKb4pDaSqn80Uk9PVA'); // Team Drive to skip (along with backup team drive)
-
 }
