@@ -413,6 +413,8 @@ function listAllProperties() {
   //setBackupStatus("HE Summer 2019 (working)", 'split', '', '');
   //setBackupStatus("_AWP test drive", 'splitsub', '', '');
   //setBackupStatus("_AWP test drive.AWP Stuff", 'full', '', '');
+  // setBackupStatus("STESSA Shared Docs - OLD", 'splitsub', '', '');
+  setBackupStatus("STESSA Events", 'splitsub', '', '');
 
   var scriptProperties = PropertiesService.getScriptProperties();
   
