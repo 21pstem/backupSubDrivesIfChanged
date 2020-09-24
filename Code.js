@@ -13,42 +13,54 @@
 
 function backupOnlyOneTeamDrive() {
   var scriptProperties = PropertiesService.getScriptProperties();
-  scriptProperties.setProperty("OneTime", "_AWP test drive");
-  scriptProperties.setProperty("OneTest", "_AWP test drive");
-  //scriptProperties.setProperty("OneTime", "_test AWP");
-  //scriptProperties.setProperty("OneTest", "_test AWP");
-  //scriptProperties.setProperty("OneTime", "Applications");
-  //scriptProperties.setProperty("OneTime", "Cairo office");
-  //scriptProperties.setProperty("OneTime", "CapstoneAppMaterials");
-  //scriptProperties.setProperty("OneTime", "Component 2 Working");
-  //scriptProperties.setProperty("OneTime", "CurriculumAppMaterials");
-  //scriptProperties.setProperty("OneTest", "CurriculumAppMaterials");
-  //scriptProperties.setProperty("OneTime", "ECASE");
-  //scriptProperties.setProperty("OneTime", "English");
-  //scriptProperties.setProperty("OneTime", "IHE Working");
-  //scriptProperties.setProperty("OneTime", "Leadership Working");
-  //scriptProperties.setProperty("OneTime", "Outreach");
-  //scriptProperties.setProperty("OneTime", "PDI Working");
-  //setBackupStatusCode("PDI Working", 'split');
-  //scriptProperties.setProperty("OneTime", "Quarterly Report Team");
-  //scriptProperties.setProperty("OneTime", "STEAM School Working");
-  //scriptProperties.setProperty("OneTime", "STESSA - Conshy Internal Staff ONLY");
-  //scriptProperties.setProperty("OneTime", "STESSA Events");
-  //scriptProperties.setProperty("OneTime", "STESSA Personnel Travel Documents (Passports & ELFs) - JB & DRD Access ONLY");
-  //scriptProperties.setProperty("OneTime", "STESSA Shared Docs");
-  //setBackupStatusCode("STESSA Shared Docs", 'split');
-  //scriptProperties.setProperty("OneTime", "STESSA Technology (Umbrella, Tracker, Curriculum, Captsone Apps)");
-  //scriptProperties.setProperty("OneTime", "STESSA");
-  ////scriptProperties.setProperty("XOneTimeX", "TeamFoldersBackups");
-  //scriptProperties.setProperty("OneTime", "Technology Curriculum");
-  //scriptProperties.setProperty("OneTime", "Travel Working");
-  //scriptProperties.setProperty("OneTime", "vvvvv");
+  //scriptProperties.setProperty("OneTime", "_4UG Working"); // done
+  //scriptProperties.setProperty("OneTime", "_AWP test drive"); // done
+  //scriptProperties.setProperty("OneTime", "_Egypt-HE-syllabi-plc"); // done
+  ///setBackupStatusCode("_Egypt-HE-syllabi-plc", 'split');
+  //scriptProperties.setProperty("OneTime", "_PLC Main"); // done
+  ///scriptProperties.setProperty("OneTime", "_Component 1 (working)");
+  //scriptProperties.setProperty("OneTime", "21PSTEM Documents"); // was skipped
+  //scriptProperties.setProperty("OneTime", "Applications"); // was skipped
+  //scriptProperties.setProperty("OneTime", "Book Collaboration"); // was skipped
+  //scriptProperties.setProperty("OneTime", "Cairo office"); // was skipped 
+  //scriptProperties.setProperty("OneTime", "CapstoneAppMaterials"); // was skipped
+  //scriptProperties.setProperty("OneTime", "Component 2 Assessment Consolidated"); // done
+  //scriptProperties.setProperty("OneTime", "Component 2 Leadership Consolidated"); // done
+  //scriptProperties.setProperty("OneTime", "Component 2 Working"); // done
+  //scriptProperties.setProperty("OneTime", "CurriculumAppMaterials"); // was skipped
+  //scriptProperties.setProperty("OneTime", "Davis A & M"); // was skipped
+  //scriptProperties.setProperty("OneTime", "E-STEM English Language Learning"); // skipped
+  ///scriptProperties.setProperty("OneTime", "ECASE");
+  ///setBackupStatusCode("ECASE", 'split'); // splitsub
+  //scriptProperties.setProperty("OneTime", "English"); // was skipped
+  //scriptProperties.setProperty("OneTime", "English Training - STEM - July 2020 -CLIN1"); // no start or finish
+  //scriptProperties.setProperty("OneTime", "HE Summer 2019 (working)"); // missing started and completed message
+  //scriptProperties.setProperty("OneTime", "IHE Working"); // was skipped
+  //scriptProperties.setProperty("OneTime", "IT"); // done
+  //scriptProperties.setProperty("OneTime", "ITSecured"); // done
+  //scriptProperties.setProperty("OneTime", "Lab Safety Comp 1 and 2"); // done
+  //scriptProperties.setProperty("OneTime", "Leadership Working");  //skipped
+  //scriptProperties.setProperty("OneTime", "Outreach"); // was skipped
+  //scriptProperties.setProperty("OneTime", "PDI Working"); // done
+  //scriptProperties.setProperty("OneTime", "Quarterly Report Team"); // skipped
+  //scriptProperties.setProperty("OneTime", "STEAM School Working"); // was skipped
+  //scriptProperties.setProperty("OneTime", "STESSA"); // done
+  //scriptProperties.setProperty("OneTime", "STESSA - Conshy Internal Staff ONLY"); // done
+  //scriptProperties.setProperty("OneTime", "STESSA Documents"); // done
+  //scriptProperties.setProperty("OneTime", "STESSA Egypt HE"); // done
+  //scriptProperties.setProperty("OneTime", "STESSA Events"); // done
+  //scriptProperties.setProperty("OneTime", "STESSA Personnel Travel Documents (Passports & ELFs) - JB & DRD Access ONLY"); // skipped
+  //scriptProperties.setProperty("OneTime", "STESSA Shared Docs - OLD"); // done
+  //scriptProperties.setProperty("OneTime", "STESSA Shared Files"); // done
+  //scriptProperties.setProperty("OneTime", "Technology Curriculum"); // skipped
+  //scriptProperties.setProperty("OneTime", "The Hope of Education"); // skipped
+  //scriptProperties.setProperty("OneTime", "Travel Working"); // skipped
+  //scriptProperties.setProperty("OneTime", "USAID Personnel Documents"); // was skipped
+  //scriptProperties.setProperty("OneTime", "USAID Shared Files"); // was skipped
   //scriptProperties.setProperty("Debugging", "true");
   backupTeamDrives();
   // clears OneTime script variable for running a team backup one time only
   scriptProperties.setProperty("OneTime", "");
-  // clears OneTest script variable for testing date logic on OneTime runs
-  scriptProperties.setProperty("OneTest", "");
   //scriptProperties.setProperty("Debugging", "false");
 }
 
@@ -65,15 +77,8 @@ function backupTeamDrives() {
     var backupFolder = DriveApp.getFolderById(backupFolderId);
     var buDrive = DriveApp.getFolderById(backupFolderId);
     var debugging = scriptProperties.getProperty("Debugging");
+    var debugging = scriptProperties.getProperty("Debugging");
     var oneTime = scriptProperties.getProperty("OneTime");
-    var oneTest = scriptProperties.getProperty("OneTest");
-    if (oneTest != "" && oneTime !== oneTest) {
-      oneTime == "";
-      oneTest == "";
-      var msg = Utilities.formatString("One Time and One Test mismatch: %s, %s",oneTime, oneTest);
-      console.info(msg);
-      errors = errors.concat(getReportMessage('', '', msg));
-    }
     if (oneTime !== "") {
       // one time run for a specific team drive. Logging and reporting will indicate skip for all other team drives.
       var msg = Utilities.formatString("One Time run to only back up team drive: %s",oneTime);
@@ -126,7 +131,13 @@ function backupTeamDrives() {
           case 'full':
             var lastModF = Utilities.formatDate(buDrive.getDateCreated(), 'UTF', 'yyyy_MM_dd_HH_mm');
             // Get the folder from the team drive ID
-            var tDriveFolder = DriveApp.getFolderById(teamDrive.id);
+            try {
+              var tDriveFolder = DriveApp.getFolderById(teamDrive.id);
+            } catch (e) {
+              msg = "Error getting DriveApp.getFileById("+teamDrive.id+")";
+              console.log(msg);
+              errors = errors.concat(getReportMessage(teamDriveName, '', msg));
+            }
             var lastDateF = Utilities.formatDate(getLastDateInFolder(tDriveFolder, new Date(2000, 1, 1)), 'UTF', 'yyyy_MM_dd_HH_mm');
             Logger.log("lastDateF: %s", lastDateF);
             // console.log("lastModF: %s, buStatus.started: %s, lastDateF: %s", lastModF, buStatus.started, lastDateF);
@@ -179,10 +190,15 @@ function backupTeamDrives() {
               console.info(msg);
               startedStr = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
               setBackupStatusDates(teamDriveName+".root", startedStr, '');
-              errors = errors.concat(deleteBuFiles(oldBackupFolder));
-              errors = errors.concat(copyFiles(tDrive, oldBackupFolder, teamDriveName));
+              if (oldBackupFolder) {
+                errors = errors.concat(deleteBuFiles(oldBackupFolder));
+                errors = errors.concat(copyFiles(tDrive, oldBackupFolder, teamDriveName));
+              } else {
+                console.log("split is missing oldBackupFolder - teamDriveName: "+teamDriveName);
+              }
               finishedStr = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
               setBackupStatusDates(teamDriveName+".root", startedStr, finishedStr);
+              
               // to do - conditionally copy files - this attempts to copy all if any has changes
               // to do - compare all files in team drive, copy if newer, delete any left over files 
               //if (shouldBuFiles(tDrive, oldBackupFolder, buStatus)) {
@@ -198,6 +214,9 @@ function backupTeamDrives() {
             // mark team drive as completed
             finishedStr = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
             setBackupStatusDates(teamDriveName, startedStr, finishedStr);
+            var msg = Utilities.formatString("Completed Backup for Team drive %s at %s", teamDriveName, finishedStr);
+            console.info(msg);
+            errors = errors.concat(getReportMessage(teamDriveName, '', msg));
             break;
           case 'splitsub':
             // under development:
@@ -223,8 +242,12 @@ function backupTeamDrives() {
               console.info(msg);
               startedStr = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
               setBackupStatusDates(teamDriveName+".root", startedStr, '');
-              errors = errors.concat(deleteBuFiles(oldBackupFolder));
-              errors = errors.concat(copyFiles(tDrive, oldBackupFolder, teamDriveName));
+              if (oldBackupFolder) {
+                errors = errors.concat(deleteBuFiles(oldBackupFolder));
+                errors = errors.concat(copyFiles(tDrive, oldBackupFolder, teamDriveName));
+              } else {
+                console.log("splitsub is missing oldBackupFolder - teamDriveName: "+teamDriveName);
+              }
               finishedStr = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
               setBackupStatusDates(teamDriveName+".root", startedStr, finishedStr);
               //Logger.log("*** Finished Split Sub Split file copy for: %s", teamDriveName);
@@ -239,6 +262,9 @@ function backupTeamDrives() {
             finishedStr = Utilities.formatDate(new Date(), 'UTF', 'yyyy_MM_dd_HH_mm');
             // mark team drive as completed
             setBackupStatusDates(teamDriveName, startedStr, finishedStr);
+            var msg = Utilities.formatString("Completed Backup for Team drive %s at %s", teamDriveName, finishedStr);
+            console.info(msg);
+            errors = errors.concat(getReportMessage(teamDriveName, '', msg));
             break;
           default:
             msg = Utilities.formatString("SPLIT SUB SPLIT FOLDERS ERROR backup - INVALID STATUS CODE for Team drive %s at %s", teamDriveName, new Date());
@@ -327,13 +353,17 @@ function getFirstFolderByName(parentFolder, folderName) {
   var errors = [];
   var folderMatches = parentFolder.getFoldersByName(folderName);
   var matchedFolder;
-  if (folderMatches.hasNext()) {
-    matchedFolder = folderMatches.next();
-    //Logger.log("*** hasNext folder name: %s", matchedFolder.getName());
-  }
-  if (!matchedFolder) {
-    //Logger.log("*** missing backup folder, create it")
-    matchedFolder = parentFolder.createFolder(folderName);
+  try {    
+    if (folderMatches.hasNext()) {
+      matchedFolder = folderMatches.next();
+      //Logger.log("*** hasNext folder name: %s", matchedFolder.getName());
+    }
+    if (!matchedFolder) {
+      //Logger.log("*** missing backup folder, create it")
+      matchedFolder = parentFolder.createFolder(folderName);
+    }
+  } catch (e) {
+    console.log("getFirstFolderByName catch form for folders for "+folderName);
   }
   return matchedFolder;  
 }
@@ -381,14 +411,14 @@ function setBackupStatus(folderName, status, started, completed) {
   return ret;
 }
 
-//function setBackupStatusCode(folderName, code) {
-//  Logger.log('setBackupStatusCode folderName: %s to %s', folderName, code);
-//  buStatus = getBackupStatus (folderName);
-//  buStatus.code = code;
-//  setBackupStatus(folderName, buStatus.code, buStatus.started, buStatus.completed)
-//  Logger.log(buStatus);
-//  return buStatus;
-//}
+function setBackupStatusCode(folderName, code) {
+  Logger.log('setBackupStatusCode folderName: %s to %s', folderName, code);
+  buStatus = getBackupStatus (folderName);
+  buStatus.code = code;
+  setBackupStatus(folderName, buStatus.code, buStatus.started, buStatus.completed)
+  Logger.log(buStatus);
+  return buStatus;
+}
 
 function setBackupStatusDates(folderName, strDateStarted, strDateDone) {
   //Logger.log('setBackupStatusDates folderName: %s to %s', folderName, strDateStarted);
@@ -414,12 +444,14 @@ function listAllProperties() {
   //setBackupStatus("_AWP test drive", 'splitsub', '', '');
   //setBackupStatus("_AWP test drive.AWP Stuff", 'full', '', '');
   // setBackupStatus("STESSA Shared Docs - OLD", 'splitsub', '', '');
-  setBackupStatus("STESSA Events", 'splitsub', '', '');
+  // setBackupStatus("STESSA Events", 'splitsub', '', '');
+  // setBackupStatus("Component 2 Working", 'splitsub', '', '');
+  setBackupStatus("_Egypt-HE-syllabi-plc", 'split', '', '');
+  setBackupStatus("_PLC Main", 'split', '', '');
 
   var scriptProperties = PropertiesService.getScriptProperties();
   
   scriptProperties.setProperty("OneTime", "");
-  scriptProperties.setProperty("OneTest", "");
 
   var scriptKeys = scriptProperties.getKeys();
   //Logger.log(scriptKeys);
@@ -582,7 +614,10 @@ function splitSubFolders(teamFolder, backupFolder, parentDirs) {
       //console.info("split subBackupFolder: %s", subBackupFolder.getName());
       lastModF = Utilities.formatDate(subBackupFolder.getDateCreated(), 'UTF', 'yyyy_MM_dd_HH_mm');
       //console.info("split subBackupFolder last backup at: %s", lastModF);
+    } else {
+      console.log("splitSubFolders is missing subBackupFolder - tfolder.getName(): "+tfolder.getName());
     }
+
     var lastDateF = Utilities.formatDate(getLastDateInFolder(tfolder, new Date(2000, 1, 1)), 'UTF', 'yyyy_MM_dd_HH_mm');
     if (buStatus.completed === "" || lastDateF > buStatus.started) {
       var msg = Utilities.formatString("STARTED Backup for Split Team drive %s at %s", thisFolderName, new Date());
@@ -635,6 +670,8 @@ function splitSubSplitSubFolders(teamFolder, backupFolder, parentDirs) {
       lastModF = Utilities.formatDate(subBackupFolder.getDateCreated(), 'UTF', 'yyyy_MM_dd_HH_mm');
       //Logger.log("split subBackupFolder last backup at: %s", lastModF);
       //console.info("split subBackupFolder last backup at: %s", lastModF);
+    } else {
+      console.log("splitSubSplitSubFolders is missing subBackupFolder - tfolder.getName(): "+tfolder.getName());
     }
     var lastDateF = Utilities.formatDate(getLastDateInFolder(tfolder, new Date(2000, 1, 1)), 'UTF', 'yyyy_MM_dd_HH_mm');
     if (buStatus.completed === "" || lastDateF > buStatus.started) {
@@ -834,7 +871,7 @@ function getLastDateInFolder(parentFolder, priorLastDate) {
 function getLastDateInFolderShallow(parentFolder, priorLastDate) {
   try {
 
-    //Logger.log("getLastDateInFolderShallow' started");
+    Logger.log("getLastDateInFolderShallow' started");
     var ret = priorLastDate;
     var fileMatches = parentFolder.getFiles();
     while (fileMatches.hasNext()) {
